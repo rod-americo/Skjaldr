@@ -68,9 +68,9 @@ struct OutputProfile: Codable, Equatable {
     var maximumHeight = 12000
     var format: OutputFormat = .png
     var jpegQuality = 0.85
-    var outerMargin = 32
-    var horizontalSpacing = 16
-    var verticalSpacing = 16
+    var outerMargin = 12
+    var horizontalSpacing = 12
+    var verticalSpacing = 12
     var backgroundHex = "#FFFFFF"
     var allowUpscaling = false
 
@@ -106,7 +106,7 @@ struct OutputProfile: Codable, Equatable {
 }
 
 struct CompositionState: Codable, Equatable {
-    var schemaVersion = 2
+    var schemaVersion = 3
     var id = UUID()
     var createdAt = Date()
     var updatedAt = Date()
@@ -126,12 +126,22 @@ struct CompositionState: Codable, Equatable {
 
     @discardableResult
     mutating func migrateIfNeeded() -> Bool {
-        guard schemaVersion < 2 else { return false }
-        if outputProfile.name == OutputProfile.report.name,
-           outputProfile.preferredWidth == 1800 {
-            outputProfile.preferredWidth = OutputProfile.report.preferredWidth
+        guard schemaVersion < 3 else { return false }
+        if outputProfile.name == OutputProfile.report.name {
+            if schemaVersion < 2, outputProfile.preferredWidth == 1800 {
+                outputProfile.preferredWidth = OutputProfile.report.preferredWidth
+            }
+            if outputProfile.outerMargin == 32 {
+                outputProfile.outerMargin = OutputProfile.report.outerMargin
+            }
+            if outputProfile.horizontalSpacing == 16 {
+                outputProfile.horizontalSpacing = OutputProfile.report.horizontalSpacing
+            }
+            if outputProfile.verticalSpacing == 16 {
+                outputProfile.verticalSpacing = OutputProfile.report.verticalSpacing
+            }
         }
-        schemaVersion = 2
+        schemaVersion = 3
         return true
     }
 

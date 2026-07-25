@@ -248,8 +248,11 @@ struct RendererClipboardTests {
         #expect(restored.schemaVersion == 1)
         let didMigrate = restored.migrateIfNeeded()
         #expect(didMigrate)
-        #expect(restored.schemaVersion == 2)
+        #expect(restored.schemaVersion == 3)
         #expect(restored.outputProfile.preferredWidth == 750)
+        #expect(restored.outputProfile.outerMargin == 12)
+        #expect(restored.outputProfile.horizontalSpacing == 12)
+        #expect(restored.outputProfile.verticalSpacing == 12)
     }
 
     @MainActor
