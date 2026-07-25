@@ -112,6 +112,7 @@ struct CompositionState: Codable, Equatable {
     var updatedAt = Date()
     var items: [CompositionItem] = []
     var rowGroups: [CompositionRowGroup] = []
+    var rowBreaks: Set<UUID> = []
     var layoutMode: LayoutMode = .automatic
     var outputProfile: OutputProfile = .report
     var automaticCropMode: AutomaticCropMode = .disabled
@@ -159,6 +160,12 @@ struct CompositionState: Codable, Equatable {
             normalized.itemIDs = uniqueIDs
             return normalized
         }
+        let groupedIDs = Set(rowGroups.flatMap(\.itemIDs))
+        rowBreaks.formIntersection(validIDs)
+        rowBreaks.subtract(groupedIDs)
+        if let firstID = items.first?.id {
+            rowBreaks.remove(firstID)
+        }
     }
 }
 
@@ -170,6 +177,7 @@ extension CompositionState {
         case updatedAt
         case items
         case rowGroups
+        case rowBreaks
         case layoutMode
         case outputProfile
         case automaticCropMode
@@ -183,6 +191,7 @@ extension CompositionState {
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         items = try container.decode([CompositionItem].self, forKey: .items)
         rowGroups = try container.decodeIfPresent([CompositionRowGroup].self, forKey: .rowGroups) ?? []
+        rowBreaks = try container.decodeIfPresent(Set<UUID>.self, forKey: .rowBreaks) ?? []
         layoutMode = try container.decode(LayoutMode.self, forKey: .layoutMode)
         outputProfile = try container.decode(OutputProfile.self, forKey: .outputProfile)
         automaticCropMode = try container.decode(AutomaticCropMode.self, forKey: .automaticCropMode)
@@ -196,6 +205,7 @@ extension CompositionState {
         try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(items, forKey: .items)
         try container.encode(rowGroups, forKey: .rowGroups)
+        try container.encode(rowBreaks, forKey: .rowBreaks)
         try container.encode(layoutMode, forKey: .layoutMode)
         try container.encode(outputProfile, forKey: .outputProfile)
         try container.encode(automaticCropMode, forKey: .automaticCropMode)

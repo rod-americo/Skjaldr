@@ -100,6 +100,34 @@ struct LayoutEngineTests {
         #expect(secondaryAreas.allSatisfy { primaryArea > $0 })
     }
 
+    @Test("Quebra manual força a imagem a iniciar outra linha")
+    func manualBreakStartsAnotherRow() {
+        let ids = (0..<4).map { _ in UUID() }
+        let items = ids.enumerated().map { index, id in
+            LayoutEngine.Input(
+                id: id,
+                aspectRatio: 1.5,
+                isPrimary: false,
+                startsNewRow: index == 2
+            )
+        }
+        let result = engine.calculate(
+            items: items,
+            mode: .automatic,
+            canvasWidth: 750,
+            margin: 12,
+            horizontalSpacing: 12,
+            verticalSpacing: 12
+        )
+        let placements = Dictionary(
+            uniqueKeysWithValues: result.placements.map { ($0.itemID, $0.frame) }
+        )
+
+        #expect(placements[ids[0]]?.minY == placements[ids[1]]?.minY)
+        #expect(placements[ids[2]]?.minY == placements[ids[3]]?.minY)
+        #expect((placements[ids[2]]?.minY ?? 0) > (placements[ids[0]]?.maxY ?? 0))
+    }
+
     @Test("Recalcula cem imagens abaixo da meta de 150 ms")
     func layoutPerformance() {
         let items = (0..<100).map {

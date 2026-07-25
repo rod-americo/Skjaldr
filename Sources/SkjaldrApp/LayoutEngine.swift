@@ -24,17 +24,20 @@ struct LayoutEngine {
         let aspectRatio: Double
         let isPrimary: Bool
         let hasCaption: Bool
+        let startsNewRow: Bool
 
         init(
             id: UUID,
             aspectRatio: Double,
             isPrimary: Bool,
-            hasCaption: Bool = false
+            hasCaption: Bool = false,
+            startsNewRow: Bool = false
         ) {
             self.id = id
             self.aspectRatio = aspectRatio
             self.isPrimary = isPrimary
             self.hasCaption = hasCaption
+            self.startsNewRow = startsNewRow
         }
     }
 
@@ -89,6 +92,71 @@ struct LayoutEngine {
     }
 
     private func ungroupedLayout(
+        items: [Input],
+        mode: LayoutMode,
+        canvasWidth: CGFloat,
+        margin: CGFloat,
+        horizontalSpacing: CGFloat,
+        verticalSpacing: CGFloat,
+        itemCaptionHeight: CGFloat
+    ) -> LayoutResult {
+        var segments: [[Input]] = []
+        var currentSegment: [Input] = []
+        for item in items {
+            if item.startsNewRow, !currentSegment.isEmpty {
+                segments.append(currentSegment)
+                currentSegment = []
+            }
+            currentSegment.append(item)
+        }
+        if !currentSegment.isEmpty {
+            segments.append(currentSegment)
+        }
+
+        guard segments.count > 1 else {
+            return singleSegmentLayout(
+                items: items,
+                mode: mode,
+                canvasWidth: canvasWidth,
+                margin: margin,
+                horizontalSpacing: horizontalSpacing,
+                verticalSpacing: verticalSpacing,
+                itemCaptionHeight: itemCaptionHeight
+            )
+        }
+
+        let contentWidth = canvasWidth - 2 * margin
+        var placements: [LayoutPlacement] = []
+        var y = margin
+        for segment in segments {
+            let result = singleSegmentLayout(
+                items: segment,
+                mode: mode,
+                canvasWidth: contentWidth,
+                margin: 0,
+                horizontalSpacing: horizontalSpacing,
+                verticalSpacing: verticalSpacing,
+                itemCaptionHeight: itemCaptionHeight
+            )
+            placements.append(contentsOf: result.placements.map { placement in
+                LayoutPlacement(
+                    itemID: placement.itemID,
+                    frame: placement.frame.offsetBy(dx: margin, dy: y),
+                    captionFrame: placement.captionFrame?.offsetBy(dx: margin, dy: y)
+                )
+            })
+            y += result.size.height + verticalSpacing
+        }
+
+        let height = max(margin * 2, y - verticalSpacing + margin)
+        return LayoutResult(
+            size: CGSize(width: canvasWidth, height: ceil(height)),
+            placements: placements,
+            groupCaptions: []
+        )
+    }
+
+    private func singleSegmentLayout(
         items: [Input],
         mode: LayoutMode,
         canvasWidth: CGFloat,

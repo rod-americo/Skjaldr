@@ -236,6 +236,7 @@ struct RendererClipboardTests {
             JSONSerialization.jsonObject(with: encoded) as? [String: Any]
         )
         object.removeValue(forKey: "rowGroups")
+        object.removeValue(forKey: "rowBreaks")
         object.removeValue(forKey: "schemaVersion")
         let legacyData = try JSONSerialization.data(withJSONObject: object)
 
@@ -245,6 +246,7 @@ struct RendererClipboardTests {
         #expect(restored.id == state.id)
         #expect(restored.layoutMode == .grid)
         #expect(restored.rowGroups.isEmpty)
+        #expect(restored.rowBreaks.isEmpty)
         #expect(restored.schemaVersion == 1)
         let didMigrate = restored.migrateIfNeeded()
         #expect(didMigrate)
@@ -293,6 +295,16 @@ struct RendererClipboardTests {
                 persistence: persistence,
                 restoreMonitorPreference: false
             )
+
+            store.selectItem(second.id, extending: false)
+            store.setSelectedRowBreak(true)
+            #expect(store.state.rowBreaks == [second.id])
+            #expect(persistence.load()?.rowBreaks == [second.id])
+            store.undo()
+            #expect(store.state.rowBreaks.isEmpty)
+            store.redo()
+            #expect(store.state.rowBreaks == [second.id])
+            store.setSelectedRowBreak(false)
 
             store.selectItem(first.id, extending: false)
             store.selectItem(second.id, extending: true)

@@ -28,6 +28,7 @@ Implementado:
 - PNG, JPEG, TIFF, HEIC, WebP, BMP e demais tipos reconhecidos pelo ImageIO;
 - miniaturas, seleção, remoção, duplicação e reordenação por arraste;
 - layouts automático justificado, grade e comparação;
+- quebra manual para forçar uma imagem a iniciar outra linha;
 - imagem principal com área destacada;
 - recorte manual não destrutivo;
 - remoção conservadora de bordas uniformes na importação;
@@ -81,10 +82,11 @@ O pacote recebe uma assinatura ad hoc local. Distribuição para outras máquina
 2. Pressione `⌘V`, arraste imagens para a janela ou use **Adicionar**.
 3. Escolha Automático, Grade ou Comparação.
 4. Reordene pelas miniaturas, se necessário.
-5. Para uma legenda individual, selecione a imagem e preencha **Legenda da imagem**.
-6. Para uma legenda comum, use `⌘`-clique em duas a quatro miniaturas e escolha **Agrupar como linha**.
-7. Pressione `⌘C` ou arraste a pré-visualização como PNG.
-8. Cole ou solte no editor do laudo.
+5. Para forçar uma quebra, selecione a imagem que deverá iniciar a próxima linha e ative **Iniciar nova linha**.
+6. Para uma legenda individual, selecione a imagem e preencha **Legenda da imagem**.
+7. Para uma legenda comum, use `⌘`-clique em duas a quatro miniaturas e escolha **Agrupar como linha**.
+8. Pressione `⌘C` ou arraste a pré-visualização como PNG.
+9. Cole ou solte no editor do laudo.
 
 Atalhos principais:
 

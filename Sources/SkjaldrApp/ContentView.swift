@@ -69,12 +69,15 @@ struct ContentView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(store.state.items.sorted(by: { $0.order < $1.order })) { item in
+                            let isGrouped = store.state.rowGroups.contains {
+                                $0.itemIDs.contains(item.id)
+                            }
+                            let startsNewRow = store.state.rowBreaks.contains(item.id)
                             ThumbnailRow(
                                 item: item,
                                 isSelected: store.selectedItemIDs.contains(item.id),
-                                isGrouped: store.state.rowGroups.contains {
-                                    $0.itemIDs.contains(item.id)
-                                }
+                                isGrouped: isGrouped,
+                                startsNewRow: startsNewRow
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -100,7 +103,17 @@ struct ContentView: View {
                                     store.selectItem(item.id, extending: false)
                                     store.duplicateSelected()
                                 }
-                                if store.state.rowGroups.contains(where: { $0.itemIDs.contains(item.id) }) {
+                                if item.order > 0, !isGrouped {
+                                    Button(
+                                        startsNewRow
+                                            ? "Remover quebra de linha"
+                                            : "Iniciar nova linha aqui"
+                                    ) {
+                                        store.selectItem(item.id, extending: false)
+                                        store.setSelectedRowBreak(!startsNewRow)
+                                    }
+                                }
+                                if isGrouped {
                                     Button("Desagrupar linha") {
                                         store.selectItem(item.id, extending: false)
                                         store.ungroupSelected()
@@ -347,6 +360,15 @@ struct ContentView: View {
                             set: { store.updateSelected(primary: $0) }
                         )
                     )
+                    Toggle(
+                        "Iniciar nova linha",
+                        isOn: Binding(
+                            get: { store.state.rowBreaks.contains(item.id) },
+                            set: store.setSelectedRowBreak
+                        )
+                    )
+                    .disabled(item.order == 0 || store.selectedGroup != nil)
+                    .help("Força uma quebra antes desta imagem em qualquer modo de layout")
                     TextField(
                         "Legenda da imagem",
                         text: Binding(
@@ -485,6 +507,7 @@ private struct ThumbnailRow: View {
     let item: CompositionItem
     let isSelected: Bool
     let isGrouped: Bool
+    let startsNewRow: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -516,6 +539,12 @@ private struct ThumbnailRow: View {
                         Image(systemName: "link")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                    if startsNewRow {
+                        Image(systemName: "arrow.turn.down.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .help("Esta imagem inicia uma nova linha")
                     }
                 }
                 Text("\(item.originalWidth) × \(item.originalHeight)")

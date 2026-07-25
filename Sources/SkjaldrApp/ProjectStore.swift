@@ -294,6 +294,7 @@ final class ProjectStore: ObservableObject {
         next.items.removeAll { selected.contains($0.id) }
         next.items.insert(contentsOf: groupedItems, at: min(insertionIndex, next.items.count))
         next.rowGroups.append(CompositionRowGroup(itemIDs: orderedIDs))
+        next.rowBreaks.subtract(selected)
         next.normalizeOrder()
         commit(next)
         selectedItemID = orderedIDs.first
@@ -318,6 +319,23 @@ final class ProjectStore: ObservableObject {
         }
         var next = state
         next.rowGroups[index].caption = caption
+        commit(next)
+    }
+
+    func setSelectedRowBreak(_ enabled: Bool) {
+        guard let id = selectedItemID,
+              let item = state.items.first(where: { $0.id == id }),
+              item.order > 0,
+              selectedGroup == nil
+        else {
+            return
+        }
+        var next = state
+        if enabled {
+            next.rowBreaks.insert(id)
+        } else {
+            next.rowBreaks.remove(id)
+        }
         commit(next)
     }
 

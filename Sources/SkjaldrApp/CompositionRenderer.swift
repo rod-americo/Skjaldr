@@ -51,7 +51,8 @@ struct CompositionRenderer {
                 id: $0.id,
                 aspectRatio: $0.croppedAspectRatio,
                 isPrimary: $0.isPrimary,
-                hasCaption: !$0.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                hasCaption: !$0.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                startsNewRow: state.rowBreaks.contains($0.id)
             )
         }
         let groups = state.rowGroups.map {
