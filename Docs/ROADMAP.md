@@ -7,7 +7,7 @@
 - não há perfil específico por viewer;
 - a grade escolhe até três colunas automaticamente, sem seletor explícito `2 × 3`;
 - o modo imagem principal usa uma composição principal + coluna lateral fixa;
-- legendas são texto simples sobre faixa discreta;
+- legendas usam faixas de altura limitada a três linhas, sem formatação rica;
 - não há setas, círculos, medições ou outras anotações;
 - rotação está prevista no modelo, mas ainda não possui comando de interface;
 - PDFs não são importados;
@@ -46,7 +46,7 @@
 - bordas discretas;
 - numeração automática;
 - rotação;
-- legendas avançadas;
+- estilos tipográficos e formatação avançada de legendas;
 - anotação não destrutiva.
 
 ### Entrada

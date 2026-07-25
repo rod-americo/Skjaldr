@@ -15,7 +15,7 @@
 O Skjaldr mantém somente:
 
 - cópias locais das imagens da sessão;
-- estado JSON com dimensões, ordem, recorte, legenda e configurações;
+- estado JSON com dimensões, ordem, recorte, legendas, grupos e configurações;
 - PNGs temporários usados no pasteboard e no arraste.
 
 O estado atual fica em `~/Library/Application Support/Skjaldr`. A versão MVP preserva a sessão até o usuário iniciar outra composição ou remover manualmente os dados da aplicação. Política de expiração configurável está no roadmap.

@@ -40,6 +40,38 @@ Com ao menos três itens e um item principal:
 - cada secundária usa `aspect fit`, sem deformação;
 - a altura final considera o maior dos dois blocos.
 
+## Grupos de linha
+
+Uma linha agrupada possui identidade própria e não depende do número visual da linha. O usuário seleciona de duas a quatro imagens; seus identificadores são armazenados em `CompositionRowGroup`.
+
+Ao calcular o layout:
+
+1. itens não agrupados continuam usando o algoritmo do modo selecionado;
+2. ao encontrar o primeiro item de um grupo, o motor encerra o segmento anterior;
+3. todas as imagens do grupo são justificadas em uma única linha;
+4. legendas individuais ocupam uma faixa sob suas respectivas imagens;
+5. a legenda comum ocupa outra faixa, centralizada sob toda a largura da linha;
+6. o processamento continua com os itens seguintes.
+
+Reordenar um integrante move o bloco inteiro. Remover imagens dissolve automaticamente grupos que ficariam com menos de dois itens.
+
+Esse vínculo por identificadores evita que uma legenda comum migre de conteúdo quando a largura ou o modo de layout muda.
+
+## Legendas
+
+As legendas não cobrem pixels médicos. Cada faixa admite até três linhas, possui fundo neutro, borda discreta e alinhamento central. Faixas vazias não são criadas.
+
+Em uma linha com legendas individuais, a base é compartilhada para manter os textos alinhados. A faixa comum do grupo vem depois das legendas individuais:
+
+```text
+┌────────────┐  ┌────────────┐
+│  imagem A  │  │  imagem B  │
+└────────────┘  └────────────┘
+   Anterior          Atual
+
+        Comparação evolutiva
+```
+
 ## Grade
 
 O número de colunas é `ceil(sqrt(n))`, limitado a três no MVP. A proporção mediana define a altura das células, reduzindo a influência de uma imagem extremamente horizontal ou vertical. Cada imagem é ajustada dentro da célula sem corte.

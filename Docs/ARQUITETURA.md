@@ -21,7 +21,9 @@ ProjectStore ───── ScreenshotMonitor
 
 ### Modelo do projeto
 
-`CompositionState` é um valor `Codable` que contém itens, layout e perfil de saída. `CompositionItem` registra apenas a URL da cópia local, dimensões, recorte normalizado, legenda, ordem e destaque. A imagem original não é serializada dentro do JSON.
+`CompositionState` é um valor `Codable` que contém itens, grupos de linha, layout e perfil de saída. `CompositionItem` registra apenas a URL da cópia local, dimensões, recorte normalizado, legenda, ordem e destaque. `CompositionRowGroup` guarda um conjunto ordenado e estável de duas a quatro imagens e sua legenda comum. A imagem original não é serializada dentro do JSON.
+
+O decodificador aceita sessões anteriores sem o campo de grupos, inicializando-o vazio. Assim, a evolução do modelo não invalida sessões já gravadas.
 
 ### Importação
 
@@ -35,6 +37,8 @@ ProjectStore ───── ScreenshotMonitor
 
 `LayoutEngine` é puro e determinístico. Recebe somente identificadores, proporções e marcação de imagem principal. O retorno contém tamanho final e retângulos em coordenadas de topo esquerdo. Não abre arquivos nem renderiza pixels.
 
+Uma legenda individual acrescenta uma faixa ao retângulo de sua imagem. Quando uma linha contém legendas individuais, a faixa é reservada para toda a linha para manter o alinhamento. Um grupo é tratado como linha indivisível e pode acrescentar uma segunda faixa que abrange a largura combinada das imagens.
+
 ### Renderização
 
 `CompositionRenderer`:
@@ -45,7 +49,7 @@ ProjectStore ───── ScreenshotMonitor
 4. abre cada fonte original;
 5. aplica o recorte normalizado sem alterar a fonte;
 6. reduz com interpolação de alta qualidade;
-7. desenha legenda opcional;
+7. desenha legendas individuais e de grupo em faixas próprias abaixo das imagens;
 8. recodifica PNG/TIFF ou JPEG.
 
 A pré-visualização utiliza largura reduzida. Cópia e salvamento invocam uma nova renderização na resolução configurada.

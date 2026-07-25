@@ -22,6 +22,11 @@ Cobertura atual:
 - comparação em pares;
 - área reservada à imagem principal;
 - ausência de sobreposição geométrica;
+- legenda individual posicionada abaixo da própria imagem;
+- grupo mantido em uma linha e legenda comum na largura combinada;
+- renderização conjunta de legendas individuais e de linha;
+- criação, edição e persistência de grupos pelo `ProjectStore`;
+- migração de sessões anteriores sem grupos;
 - recálculo de cem imagens abaixo de 150 ms;
 - renderização de vinte imagens sintéticas abaixo de um segundo;
 - renderização de uma única imagem PNG;

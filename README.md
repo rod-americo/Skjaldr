@@ -34,7 +34,9 @@ Implementado:
 - fundo branco, margem, espaçamento e largura configuráveis;
 - perfis Laudo padrão, Alta resolução e Imagem compacta;
 - renderização integral a partir dos arquivos originais;
-- legendas simples incorporadas à saída;
+- legendas individuais centralizadas abaixo de cada imagem;
+- agrupamento estável de duas a quatro imagens em uma linha;
+- legenda comum centralizada sob toda a linha agrupada;
 - cópia da composição com PNG e TIFF;
 - salvamento como PNG ou JPEG;
 - arraste da composição como PNG;
@@ -79,8 +81,10 @@ O pacote recebe uma assinatura ad hoc local. Distribuição para outras máquina
 2. Pressione `⌘V`, arraste imagens para a janela ou use **Adicionar**.
 3. Escolha Automático, Grade ou Comparação.
 4. Reordene pelas miniaturas, se necessário.
-5. Pressione `⌘C`.
-6. Cole no editor do laudo.
+5. Para uma legenda individual, selecione a imagem e preencha **Legenda da imagem**.
+6. Para uma legenda comum, use `⌘`-clique em duas a quatro miniaturas e escolha **Agrupar como linha**.
+7. Pressione `⌘C` ou arraste a pré-visualização como PNG.
+8. Cole ou solte no editor do laudo.
 
 Atalhos principais:
 
@@ -94,6 +98,8 @@ Atalhos principais:
 | `⌘Z` / `⌘⇧Z` | desfazer / refazer |
 | `Delete` | remover a imagem selecionada |
 | `⌘D` | duplicar a imagem selecionada |
+| `⌘G` | agrupar a seleção como uma linha |
+| `⌘⇧G` | desagrupar a linha selecionada |
 | `⌘1` / `⌘2` / `⌘3` | automático / comparação / grade |
 
 ## Privacidade

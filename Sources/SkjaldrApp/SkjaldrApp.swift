@@ -56,6 +56,12 @@ struct SkjaldrApp: App {
                 Button("Duplicar imagem selecionada") { store.duplicateSelected() }
                     .keyboardShortcut("d", modifiers: .command)
                     .disabled(store.selectedItemID == nil)
+                Button("Agrupar seleção como linha") { store.createRowGroup() }
+                    .keyboardShortcut("g", modifiers: .command)
+                    .disabled(!store.canCreateRowGroup)
+                Button("Desagrupar linha") { store.ungroupSelected() }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
+                    .disabled(store.selectedGroup == nil)
                 Button("Remover imagem selecionada") { store.removeSelected() }
                     .keyboardShortcut(.delete, modifiers: [])
                     .disabled(store.selectedItemID == nil)

@@ -71,10 +71,19 @@ struct ContentView: View {
                         ForEach(store.state.items.sorted(by: { $0.order < $1.order })) { item in
                             ThumbnailRow(
                                 item: item,
-                                isSelected: store.selectedItemID == item.id
+                                isSelected: store.selectedItemIDs.contains(item.id),
+                                isGrouped: store.state.rowGroups.contains {
+                                    $0.itemIDs.contains(item.id)
+                                }
                             )
                             .contentShape(Rectangle())
-                            .onTapGesture { store.selectedItemID = item.id }
+                            .onTapGesture {
+                                let modifiers = NSEvent.modifierFlags
+                                store.selectItem(
+                                    item.id,
+                                    extending: modifiers.contains(.command) || modifiers.contains(.shift)
+                                )
+                            }
                             .onDrag {
                                 NSItemProvider(object: item.id.uuidString as NSString)
                             }
@@ -84,16 +93,22 @@ struct ContentView: View {
                             )
                             .contextMenu {
                                 Button(item.isPrimary ? "Remover destaque" : "Definir como principal") {
-                                    store.selectedItemID = item.id
+                                    store.selectItem(item.id, extending: false)
                                     store.updateSelected(primary: !item.isPrimary)
                                 }
                                 Button("Duplicar") {
-                                    store.selectedItemID = item.id
+                                    store.selectItem(item.id, extending: false)
                                     store.duplicateSelected()
+                                }
+                                if store.state.rowGroups.contains(where: { $0.itemIDs.contains(item.id) }) {
+                                    Button("Desagrupar linha") {
+                                        store.selectItem(item.id, extending: false)
+                                        store.ungroupSelected()
+                                    }
                                 }
                                 Divider()
                                 Button("Remover", role: .destructive) {
-                                    store.selectedItemID = item.id
+                                    store.selectItem(item.id, extending: false)
                                     store.removeSelected()
                                 }
                             }
@@ -114,10 +129,25 @@ struct ContentView: View {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(.borderless)
-                .disabled(store.selectedItemID == nil)
+                .disabled(store.selectedItemIDs.isEmpty)
                 .help("Remover imagem selecionada")
             }
             .padding(12)
+
+            if store.selectedItemIDs.count > 1 {
+                Divider()
+                HStack {
+                    Text("\(store.selectedItemIDs.count) imagens selecionadas")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Agrupar como linha", action: store.createRowGroup)
+                        .controlSize(.small)
+                        .disabled(!store.canCreateRowGroup)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+            }
         }
         .background(.background)
     }
@@ -318,13 +348,41 @@ struct ContentView: View {
                         )
                     )
                     TextField(
-                        "Legenda opcional",
+                        "Legenda da imagem",
                         text: Binding(
                             get: { store.selectedItem?.caption ?? "" },
                             set: { store.updateSelected(caption: $0) }
-                        )
+                        ),
+                        axis: .vertical
                     )
+                    .lineLimit(1...3)
                     CropControls(store: store)
+                }
+            }
+
+            if let group = store.selectedGroup {
+                Section("Linha agrupada") {
+                    Text("\(group.itemIDs.count) imagens mantidas na mesma linha")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField(
+                        "Legenda central da linha",
+                        text: Binding(
+                            get: { store.selectedGroup?.caption ?? "" },
+                            set: store.updateSelectedGroupCaption
+                        ),
+                        axis: .vertical
+                    )
+                    .lineLimit(1...3)
+                    Button("Desagrupar linha", action: store.ungroupSelected)
+                }
+            } else if store.selectedItemIDs.count > 1 {
+                Section("Legenda da linha") {
+                    Text("Agrupe as imagens para mantê-las juntas e adicionar uma legenda comum.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Agrupar como linha", action: store.createRowGroup)
+                        .disabled(!store.canCreateRowGroup)
                 }
             }
 
@@ -426,6 +484,7 @@ struct ContentView: View {
 private struct ThumbnailRow: View {
     let item: CompositionItem
     let isSelected: Bool
+    let isGrouped: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -452,6 +511,11 @@ private struct ThumbnailRow: View {
                         Image(systemName: "star.fill")
                             .font(.caption)
                             .foregroundStyle(.yellow)
+                    }
+                    if isGrouped {
+                        Image(systemName: "link")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Text("\(item.originalWidth) × \(item.originalHeight)")
