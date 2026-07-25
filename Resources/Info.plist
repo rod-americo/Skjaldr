@@ -8,6 +8,10 @@
     <string>Skjaldr</string>
     <key>CFBundleExecutable</key>
     <string>Skjaldr</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>io.skjaldr.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
