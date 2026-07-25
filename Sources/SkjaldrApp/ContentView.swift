@@ -161,28 +161,28 @@ struct ContentView: View {
 
             if let preview = store.previewImage {
                 ScrollView([.horizontal, .vertical]) {
-                    Image(nsImage: preview)
-                        .resizable()
-                        .interpolation(.high)
-                        .aspectRatio(contentMode: .fit)
-                        .frame(
-                            width: max(240, preview.size.width * previewScale),
-                            height: max(160, preview.size.height * previewScale)
-                        )
-                        .background(Color.white)
-                        .shadow(color: .black.opacity(0.25), radius: 12, y: 5)
-                        .overlay(alignment: .bottomTrailing) {
-                            Label("Arraste como PNG", systemImage: "arrow.up.doc")
-                                .font(.caption.weight(.medium))
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 6)
-                                .background(.regularMaterial, in: Capsule())
-                                .padding(10)
-                                .allowsHitTesting(false)
-                        }
-                        .padding(40)
-                        .onDrag { store.dragProvider() }
-                        .help("Arraste a composição como arquivo PNG para outro aplicativo")
+                    VStack(spacing: 12) {
+                        Image(nsImage: preview)
+                            .resizable()
+                            .interpolation(.high)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(
+                                width: max(240, preview.size.width * previewScale),
+                                height: max(160, preview.size.height * previewScale)
+                            )
+                            .background(Color.white)
+                            .shadow(color: .black.opacity(0.25), radius: 12, y: 5)
+                            .onDrag { store.dragProvider() }
+
+                        Label("Arraste como PNG", systemImage: "arrow.up.doc")
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 6)
+                            .background(.regularMaterial, in: Capsule())
+                            .onDrag { store.dragProvider() }
+                    }
+                    .padding(40)
+                    .help("Arraste a composição como arquivo PNG para outro aplicativo")
                 }
             } else {
                 VStack(spacing: 16) {
