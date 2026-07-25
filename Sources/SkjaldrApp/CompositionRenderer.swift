@@ -46,30 +46,43 @@ struct CompositionRenderer {
         let profile = state.outputProfile
         let requestedWidth = overrideWidth ?? profile.preferredWidth
         let width = max(320, min(profile.maximumWidth, requestedWidth))
-        let scale = CGFloat(width) / CGFloat(profile.preferredWidth)
         let inputs = state.items.sorted(by: { $0.order < $1.order }).map {
-            LayoutEngine.Input(id: $0.id, aspectRatio: $0.croppedAspectRatio, isPrimary: $0.isPrimary)
+            LayoutEngine.Input(
+                id: $0.id,
+                aspectRatio: $0.croppedAspectRatio,
+                isPrimary: $0.isPrimary,
+                hasCaption: !$0.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
         }
-        var layout = layoutEngine.calculate(
-            items: inputs,
-            mode: state.layoutMode,
-            canvasWidth: CGFloat(width),
-            margin: CGFloat(profile.outerMargin) * scale,
-            horizontalSpacing: CGFloat(profile.horizontalSpacing) * scale,
-            verticalSpacing: CGFloat(profile.verticalSpacing) * scale
-        )
+        let groups = state.rowGroups.map {
+            LayoutEngine.Group(
+                id: $0.id,
+                itemIDs: $0.itemIDs,
+                hasCaption: !$0.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+        }
+
+        func calculateLayout(width: Int) -> LayoutResult {
+            let renderScale = CGFloat(width) / CGFloat(profile.preferredWidth)
+            return layoutEngine.calculate(
+                items: inputs,
+                mode: state.layoutMode,
+                canvasWidth: CGFloat(width),
+                margin: CGFloat(profile.outerMargin) * renderScale,
+                horizontalSpacing: CGFloat(profile.horizontalSpacing) * renderScale,
+                verticalSpacing: CGFloat(profile.verticalSpacing) * renderScale,
+                groups: groups,
+                itemCaptionHeight: 112 * renderScale,
+                groupCaptionHeight: 120 * renderScale
+            )
+        }
+
+        var layout = calculateLayout(width: width)
 
         if layout.size.height > CGFloat(profile.maximumHeight) {
             let reduction = CGFloat(profile.maximumHeight) / layout.size.height
             let reducedWidth = max(320, Int(CGFloat(width) * reduction))
-            layout = layoutEngine.calculate(
-                items: inputs,
-                mode: state.layoutMode,
-                canvasWidth: CGFloat(reducedWidth),
-                margin: CGFloat(profile.outerMargin) * reduction,
-                horizontalSpacing: CGFloat(profile.horizontalSpacing) * reduction,
-                verticalSpacing: CGFloat(profile.verticalSpacing) * reduction
-            )
+            layout = calculateLayout(width: reducedWidth)
         }
 
         guard let bitmap = NSBitmapImageRep(
@@ -102,6 +115,25 @@ struct CompositionRenderer {
                 continue
             }
             draw(image: image, item: item, inTopLeftFrame: placement.frame, canvasHeight: layout.size.height)
+            if let captionFrame = placement.captionFrame {
+                drawCaption(
+                    item.caption,
+                    inTopLeftFrame: captionFrame,
+                    canvasHeight: layout.size.height,
+                    isGroup: false
+                )
+            }
+        }
+
+        let groupByID = Dictionary(uniqueKeysWithValues: state.rowGroups.map { ($0.id, $0) })
+        for placement in layout.groupCaptions {
+            guard let group = groupByID[placement.groupID] else { continue }
+            drawCaption(
+                group.caption,
+                inTopLeftFrame: placement.frame,
+                canvasHeight: layout.size.height,
+                isGroup: true
+            )
         }
 
         NSGraphicsContext.restoreGraphicsState()
@@ -143,17 +175,59 @@ struct CompositionRenderer {
             respectFlipped: false,
             hints: [.interpolation: NSImageInterpolation.high]
         )
+    }
 
-        guard !item.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let fontSize = max(13, min(28, destination.height * 0.055))
+    private func drawCaption(
+        _ caption: String,
+        inTopLeftFrame topFrame: CGRect,
+        canvasHeight: CGFloat,
+        isGroup: Bool
+    ) {
+        guard !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let destination = CGRect(
+            x: topFrame.minX,
+            y: canvasHeight - topFrame.maxY,
+            width: topFrame.width,
+            height: topFrame.height
+        )
+        let background = isGroup
+            ? NSColor(calibratedWhite: 0.93, alpha: 1)
+            : NSColor(calibratedWhite: 0.97, alpha: 1)
+        background.setFill()
+        destination.fill()
+        NSColor(calibratedWhite: 0.78, alpha: 1).setStroke()
+        let border = NSBezierPath(rect: destination.insetBy(dx: 0.5, dy: 0.5))
+        border.lineWidth = 1
+        border.stroke()
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byWordWrapping
+        let fontSize = max(12, min(isGroup ? 24 : 22, destination.height * 0.20))
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: .semibold),
-            .foregroundColor: NSColor.white,
-            .backgroundColor: NSColor.black.withAlphaComponent(0.68)
+            .font: NSFont.systemFont(ofSize: fontSize, weight: isGroup ? .semibold : .regular),
+            .foregroundColor: NSColor(calibratedWhite: 0.12, alpha: 1),
+            .paragraphStyle: paragraph
         ]
-        let text = NSAttributedString(string: " \(item.caption) ", attributes: attributes)
-        let size = text.size()
-        text.draw(at: CGPoint(x: destination.minX + 8, y: destination.maxY - size.height - 8))
+        let text = NSAttributedString(
+            string: caption.trimmingCharacters(in: .whitespacesAndNewlines),
+            attributes: attributes
+        )
+        let available = destination.insetBy(dx: 12, dy: 8)
+        let measured = text.boundingRect(
+            with: available.size,
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        )
+        let drawRect = CGRect(
+            x: available.minX,
+            y: available.midY - min(available.height, measured.height) / 2,
+            width: available.width,
+            height: min(available.height, measured.height)
+        )
+        text.draw(
+            with: drawRect,
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        )
     }
 }
 

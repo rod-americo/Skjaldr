@@ -55,6 +55,12 @@ struct CompositionItem: Identifiable, Codable, Equatable {
     }
 }
 
+struct CompositionRowGroup: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var itemIDs: [UUID]
+    var caption: String = ""
+}
+
 struct OutputProfile: Codable, Equatable {
     var name = "Laudo padrão"
     var preferredWidth = 1800
@@ -104,6 +110,7 @@ struct CompositionState: Codable, Equatable {
     var createdAt = Date()
     var updatedAt = Date()
     var items: [CompositionItem] = []
+    var rowGroups: [CompositionRowGroup] = []
     var layoutMode: LayoutMode = .automatic
     var outputProfile: OutputProfile = .report
     var automaticCropMode: AutomaticCropMode = .disabled
@@ -112,6 +119,60 @@ struct CompositionState: Codable, Equatable {
         for index in items.indices {
             items[index].order = index
         }
+        normalizeGroups()
         updatedAt = Date()
+    }
+
+    private mutating func normalizeGroups() {
+        let validIDs = Set(items.map(\.id))
+        let orderByID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.order) })
+        var claimedIDs = Set<UUID>()
+        rowGroups = rowGroups.compactMap { group in
+            let uniqueIDs = Array(Set(group.itemIDs))
+                .filter { validIDs.contains($0) && !claimedIDs.contains($0) }
+                .sorted { (orderByID[$0] ?? 0) < (orderByID[$1] ?? 0) }
+            guard uniqueIDs.count >= 2 else { return nil }
+            claimedIDs.formUnion(uniqueIDs)
+            var normalized = group
+            normalized.itemIDs = uniqueIDs
+            return normalized
+        }
+    }
+}
+
+extension CompositionState {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case createdAt
+        case updatedAt
+        case items
+        case rowGroups
+        case layoutMode
+        case outputProfile
+        case automaticCropMode
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        items = try container.decode([CompositionItem].self, forKey: .items)
+        rowGroups = try container.decodeIfPresent([CompositionRowGroup].self, forKey: .rowGroups) ?? []
+        layoutMode = try container.decode(LayoutMode.self, forKey: .layoutMode)
+        outputProfile = try container.decode(OutputProfile.self, forKey: .outputProfile)
+        automaticCropMode = try container.decode(AutomaticCropMode.self, forKey: .automaticCropMode)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(items, forKey: .items)
+        try container.encode(rowGroups, forKey: .rowGroups)
+        try container.encode(layoutMode, forKey: .layoutMode)
+        try container.encode(outputProfile, forKey: .outputProfile)
+        try container.encode(automaticCropMode, forKey: .automaticCropMode)
     }
 }

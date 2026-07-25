@@ -170,6 +170,138 @@ struct RendererClipboardTests {
         }
     }
 
+    @Test("Legendas individuais e de linha aumentam a composição final")
+    func captionsAreRenderedBelowImages() throws {
+        try withTemporaryDirectory { directory in
+            let first = try makeImage(
+                in: directory,
+                name: "legenda-a",
+                width: 800,
+                height: 600,
+                color: .black
+            )
+            let second = try makeImage(
+                in: directory,
+                name: "legenda-b",
+                width: 800,
+                height: 600,
+                color: .darkGray
+            )
+            var firstItem = CompositionItem(
+                sourceURL: first,
+                originalWidth: 800,
+                originalHeight: 600,
+                caption: "Anterior",
+                order: 0
+            )
+            let secondItem = CompositionItem(
+                sourceURL: second,
+                originalWidth: 800,
+                originalHeight: 600,
+                caption: "Atual",
+                order: 1
+            )
+            firstItem.isPrimary = false
+            let group = CompositionRowGroup(
+                itemIDs: [firstItem.id, secondItem.id],
+                caption: "Comparação evolutiva"
+            )
+            let captionedState = CompositionState(
+                items: [firstItem, secondItem],
+                rowGroups: [group]
+            )
+            var plainState = captionedState
+            plainState.items[0].caption = ""
+            plainState.items[1].caption = ""
+            plainState.rowGroups[0].caption = ""
+
+            let captioned = try CompositionRenderer().render(state: captionedState)
+            let plain = try CompositionRenderer().render(state: plainState)
+
+            #expect(captioned.size.height > plain.size.height)
+            #expect(captioned.pngData != plain.pngData)
+        }
+    }
+
+    @Test("Sessão anterior sem grupos continua compatível")
+    func legacySessionMigration() throws {
+        var state = CompositionState()
+        state.layoutMode = .grid
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let encoded = try encoder.encode(state)
+        var object = try #require(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        object.removeValue(forKey: "rowGroups")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+
+        let restored = try JSONDecoder.project.decode(CompositionState.self, from: legacyData)
+
+        #expect(restored.id == state.id)
+        #expect(restored.layoutMode == .grid)
+        #expect(restored.rowGroups.isEmpty)
+    }
+
+    @MainActor
+    @Test("Store agrupa seleção, edita legenda comum e persiste")
+    func projectStoreGroupsSelection() throws {
+        try withTemporaryDirectory { directory in
+            let firstURL = try makeImage(
+                in: directory,
+                name: "grupo-a",
+                width: 640,
+                height: 480,
+                color: .black
+            )
+            let secondURL = try makeImage(
+                in: directory,
+                name: "grupo-b",
+                width: 640,
+                height: 480,
+                color: .darkGray
+            )
+            let first = CompositionItem(
+                sourceURL: firstURL,
+                originalWidth: 640,
+                originalHeight: 480,
+                order: 0
+            )
+            let second = CompositionItem(
+                sourceURL: secondURL,
+                originalWidth: 640,
+                originalHeight: 480,
+                order: 1
+            )
+            let persistence = SessionPersistence(
+                rootDirectory: directory.appendingPathComponent("sessao")
+            )
+            try persistence.save(CompositionState(items: [first, second]))
+            let store = ProjectStore(
+                persistence: persistence,
+                restoreMonitorPreference: false
+            )
+
+            store.selectItem(first.id, extending: false)
+            store.selectItem(second.id, extending: true)
+            store.createRowGroup()
+            store.updateSelectedGroupCaption("Comparação evolutiva")
+
+            #expect(store.state.rowGroups.count == 1)
+            #expect(store.state.rowGroups[0].itemIDs == [first.id, second.id])
+            #expect(store.state.rowGroups[0].caption == "Comparação evolutiva")
+            #expect(persistence.load()?.rowGroups == store.state.rowGroups)
+
+            store.undo()
+            #expect(store.state.rowGroups[0].caption.isEmpty)
+            store.undo()
+            #expect(store.state.rowGroups.isEmpty)
+            store.redo()
+            store.redo()
+            #expect(store.state.rowGroups[0].caption == "Comparação evolutiva")
+        }
+    }
+
     private func withTemporaryDirectory(_ operation: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("SkjaldrTests-\(UUID().uuidString)", isDirectory: true)

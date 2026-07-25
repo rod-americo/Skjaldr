@@ -4,11 +4,18 @@ import Foundation
 struct LayoutPlacement: Equatable {
     let itemID: UUID
     let frame: CGRect
+    let captionFrame: CGRect?
+}
+
+struct GroupCaptionPlacement: Equatable {
+    let groupID: UUID
+    let frame: CGRect
 }
 
 struct LayoutResult: Equatable {
     let size: CGSize
     let placements: [LayoutPlacement]
+    let groupCaptions: [GroupCaptionPlacement]
 }
 
 struct LayoutEngine {
@@ -16,6 +23,25 @@ struct LayoutEngine {
         let id: UUID
         let aspectRatio: Double
         let isPrimary: Bool
+        let hasCaption: Bool
+
+        init(
+            id: UUID,
+            aspectRatio: Double,
+            isPrimary: Bool,
+            hasCaption: Bool = false
+        ) {
+            self.id = id
+            self.aspectRatio = aspectRatio
+            self.isPrimary = isPrimary
+            self.hasCaption = hasCaption
+        }
+    }
+
+    struct Group {
+        let id: UUID
+        let itemIDs: [UUID]
+        let hasCaption: Bool
     }
 
     func calculate(
@@ -24,12 +50,53 @@ struct LayoutEngine {
         canvasWidth: CGFloat,
         margin: CGFloat,
         horizontalSpacing: CGFloat,
-        verticalSpacing: CGFloat
+        verticalSpacing: CGFloat,
+        groups: [Group] = [],
+        itemCaptionHeight: CGFloat = 0,
+        groupCaptionHeight: CGFloat = 0
     ) -> LayoutResult {
         guard !items.isEmpty, canvasWidth > margin * 2 else {
-            return LayoutResult(size: CGSize(width: canvasWidth, height: max(1, margin * 2)), placements: [])
+            return LayoutResult(
+                size: CGSize(width: canvasWidth, height: max(1, margin * 2)),
+                placements: [],
+                groupCaptions: []
+            )
         }
 
+        if !groups.isEmpty {
+            return groupedLayout(
+                items: items,
+                groups: groups,
+                mode: mode,
+                width: canvasWidth,
+                margin: margin,
+                hSpacing: horizontalSpacing,
+                vSpacing: verticalSpacing,
+                itemCaptionHeight: itemCaptionHeight,
+                groupCaptionHeight: groupCaptionHeight
+            )
+        }
+
+        return ungroupedLayout(
+            items: items,
+            mode: mode,
+            canvasWidth: canvasWidth,
+            margin: margin,
+            horizontalSpacing: horizontalSpacing,
+            verticalSpacing: verticalSpacing,
+            itemCaptionHeight: itemCaptionHeight
+        )
+    }
+
+    private func ungroupedLayout(
+        items: [Input],
+        mode: LayoutMode,
+        canvasWidth: CGFloat,
+        margin: CGFloat,
+        horizontalSpacing: CGFloat,
+        verticalSpacing: CGFloat,
+        itemCaptionHeight: CGFloat
+    ) -> LayoutResult {
         switch mode {
         case .automatic:
             if let primaryIndex = items.firstIndex(where: \.isPrimary), items.count >= 3 {
@@ -39,7 +106,8 @@ struct LayoutEngine {
                     width: canvasWidth,
                     margin: margin,
                     hSpacing: horizontalSpacing,
-                    vSpacing: verticalSpacing
+                    vSpacing: verticalSpacing,
+                    captionHeight: itemCaptionHeight
                 )
             }
             return justifiedLayout(
@@ -47,7 +115,8 @@ struct LayoutEngine {
                 width: canvasWidth,
                 margin: margin,
                 hSpacing: horizontalSpacing,
-                vSpacing: verticalSpacing
+                vSpacing: verticalSpacing,
+                captionHeight: itemCaptionHeight
             )
         case .grid:
             return gridLayout(
@@ -55,7 +124,8 @@ struct LayoutEngine {
                 width: canvasWidth,
                 margin: margin,
                 hSpacing: horizontalSpacing,
-                vSpacing: verticalSpacing
+                vSpacing: verticalSpacing,
+                captionHeight: itemCaptionHeight
             )
         case .comparison:
             return comparisonLayout(
@@ -63,7 +133,8 @@ struct LayoutEngine {
                 width: canvasWidth,
                 margin: margin,
                 hSpacing: horizontalSpacing,
-                vSpacing: verticalSpacing
+                vSpacing: verticalSpacing,
+                captionHeight: itemCaptionHeight
             )
         }
     }
@@ -73,7 +144,8 @@ struct LayoutEngine {
         width: CGFloat,
         margin: CGFloat,
         hSpacing: CGFloat,
-        vSpacing: CGFloat
+        vSpacing: CGFloat,
+        captionHeight: CGFloat
     ) -> LayoutResult {
         let availableWidth = width - 2 * margin
         let targetHeight = min(520, max(220, availableWidth / 3))
@@ -124,22 +196,37 @@ struct LayoutEngine {
             }
             let contentWidth = rowHeight * ratioSum + spacing
             var x = margin + max(0, (availableWidth - contentWidth) / 2)
+            let hasCaptionBand = captionHeight > 0 && row.contains(where: \.hasCaption)
+            let captionTop = ceil(y + rowHeight)
 
             for item in row {
                 let itemWidth = rowHeight * CGFloat(max(0.05, item.aspectRatio))
+                let frame = CGRect(x: x, y: y, width: itemWidth, height: rowHeight).integral
                 placements.append(
                     LayoutPlacement(
                         itemID: item.id,
-                        frame: CGRect(x: x, y: y, width: itemWidth, height: rowHeight).integral
+                        frame: frame,
+                        captionFrame: item.hasCaption && hasCaptionBand
+                            ? CGRect(
+                                x: frame.minX,
+                                y: captionTop,
+                                width: frame.width,
+                                height: captionHeight
+                            ).integral
+                            : nil
                     )
                 )
                 x += itemWidth + hSpacing
             }
-            y += rowHeight + vSpacing
+            y = captionTop + (hasCaptionBand ? captionHeight : 0) + vSpacing
         }
 
         let height = max(margin * 2, y - vSpacing + margin)
-        return LayoutResult(size: CGSize(width: width, height: ceil(height)), placements: placements)
+        return LayoutResult(
+            size: CGSize(width: width, height: ceil(height)),
+            placements: placements,
+            groupCaptions: []
+        )
     }
 
     private func gridLayout(
@@ -147,7 +234,8 @@ struct LayoutEngine {
         width: CGFloat,
         margin: CGFloat,
         hSpacing: CGFloat,
-        vSpacing: CGFloat
+        vSpacing: CGFloat,
+        captionHeight: CGFloat
     ) -> LayoutResult {
         let columns = max(1, min(3, Int(ceil(sqrt(Double(items.count))))))
         let availableWidth = width - 2 * margin
@@ -155,22 +243,46 @@ struct LayoutEngine {
         let medianRatio = items.map(\.aspectRatio).sorted()[items.count / 2]
         let cellHeight = cellWidth / CGFloat(max(0.65, min(1.8, medianRatio)))
         var placements: [LayoutPlacement] = []
+        var y = margin
+        let rowCount = Int(ceil(Double(items.count) / Double(columns)))
 
-        for (index, item) in items.enumerated() {
-            let row = index / columns
-            let column = index % columns
-            let cell = CGRect(
-                x: margin + CGFloat(column) * (cellWidth + hSpacing),
-                y: margin + CGFloat(row) * (cellHeight + vSpacing),
-                width: cellWidth,
-                height: cellHeight
-            )
-            placements.append(LayoutPlacement(itemID: item.id, frame: aspectFit(item.aspectRatio, in: cell).integral))
+        for rowIndex in 0..<rowCount {
+            let start = rowIndex * columns
+            let rowItems = Array(items[start..<min(items.count, start + columns)])
+            let hasCaptionBand = captionHeight > 0 && rowItems.contains(where: \.hasCaption)
+            let captionTop = ceil(y + cellHeight)
+            for (column, item) in rowItems.enumerated() {
+                let cell = CGRect(
+                    x: margin + CGFloat(column) * (cellWidth + hSpacing),
+                    y: y,
+                    width: cellWidth,
+                    height: cellHeight
+                )
+                let frame = aspectFit(item.aspectRatio, in: cell).integral
+                placements.append(
+                    LayoutPlacement(
+                        itemID: item.id,
+                        frame: frame,
+                        captionFrame: item.hasCaption && hasCaptionBand
+                            ? CGRect(
+                                x: frame.minX,
+                                y: captionTop,
+                                width: frame.width,
+                                height: captionHeight
+                            ).integral
+                            : nil
+                    )
+                )
+            }
+            y = captionTop + (hasCaptionBand ? captionHeight : 0) + vSpacing
         }
 
-        let rows = Int(ceil(Double(items.count) / Double(columns)))
-        let height = 2 * margin + CGFloat(rows) * cellHeight + CGFloat(max(0, rows - 1)) * vSpacing
-        return LayoutResult(size: CGSize(width: width, height: ceil(height)), placements: placements)
+        let height = y - vSpacing + margin
+        return LayoutResult(
+            size: CGSize(width: width, height: ceil(height)),
+            placements: placements,
+            groupCaptions: []
+        )
     }
 
     private func comparisonLayout(
@@ -178,7 +290,8 @@ struct LayoutEngine {
         width: CGFloat,
         margin: CGFloat,
         hSpacing: CGFloat,
-        vSpacing: CGFloat
+        vSpacing: CGFloat,
+        captionHeight: CGFloat
     ) -> LayoutResult {
         let availableWidth = width - 2 * margin
         let cellWidth = (availableWidth - hSpacing) / 2
@@ -188,6 +301,8 @@ struct LayoutEngine {
         for start in stride(from: 0, to: items.count, by: 2) {
             let pair = Array(items[start..<min(items.count, start + 2)])
             let pairHeight = pair.map { cellWidth / CGFloat(max(0.05, $0.aspectRatio)) }.max() ?? cellWidth
+            let hasCaptionBand = captionHeight > 0 && pair.contains(where: \.hasCaption)
+            let captionTop = ceil(y + pairHeight)
             let pairContentWidth = pair.count == 1 ? cellWidth : availableWidth
             let originX = margin + (availableWidth - pairContentWidth) / 2
 
@@ -198,12 +313,30 @@ struct LayoutEngine {
                     width: cellWidth,
                     height: pairHeight
                 )
-                placements.append(LayoutPlacement(itemID: item.id, frame: aspectFit(item.aspectRatio, in: cell).integral))
+                let frame = aspectFit(item.aspectRatio, in: cell).integral
+                placements.append(
+                    LayoutPlacement(
+                        itemID: item.id,
+                        frame: frame,
+                        captionFrame: item.hasCaption && hasCaptionBand
+                            ? CGRect(
+                                x: frame.minX,
+                                y: captionTop,
+                                width: frame.width,
+                                height: captionHeight
+                            ).integral
+                            : nil
+                    )
+                )
             }
-            y += pairHeight + vSpacing
+            y = captionTop + (hasCaptionBand ? captionHeight : 0) + vSpacing
         }
 
-        return LayoutResult(size: CGSize(width: width, height: ceil(y - vSpacing + margin)), placements: placements)
+        return LayoutResult(
+            size: CGSize(width: width, height: ceil(y - vSpacing + margin)),
+            placements: placements,
+            groupCaptions: []
+        )
     }
 
     private func primaryLayout(
@@ -212,7 +345,8 @@ struct LayoutEngine {
         width: CGFloat,
         margin: CGFloat,
         hSpacing: CGFloat,
-        vSpacing: CGFloat
+        vSpacing: CGFloat,
+        captionHeight: CGFloat
     ) -> LayoutResult {
         let primary = items[primaryIndex]
         let secondary = items.enumerated().filter { $0.offset != primaryIndex }.map(\.element)
@@ -220,23 +354,222 @@ struct LayoutEngine {
         let primaryWidth = availableWidth * 0.66
         let sideWidth = availableWidth - primaryWidth - hSpacing
         let primaryHeight = primaryWidth / CGFloat(max(0.05, primary.aspectRatio))
+        let primaryCaptionHeight = primary.hasCaption ? captionHeight : 0
         let sideSpacing = vSpacing * CGFloat(max(0, secondary.count - 1))
-        let sideHeight = max(100, (primaryHeight - sideSpacing) / CGFloat(secondary.count))
+        let sideCaptionHeight = secondary.reduce(CGFloat.zero) {
+            $0 + ($1.hasCaption ? captionHeight : 0)
+        }
+        let sideHeight = max(
+            100,
+            (primaryHeight + primaryCaptionHeight - sideSpacing - sideCaptionHeight)
+                / CGFloat(secondary.count)
+        )
 
+        let primaryFrame = CGRect(
+            x: margin,
+            y: margin,
+            width: primaryWidth,
+            height: primaryHeight
+        ).integral
         var placements = [
             LayoutPlacement(
                 itemID: primary.id,
-                frame: CGRect(x: margin, y: margin, width: primaryWidth, height: primaryHeight).integral
+                frame: primaryFrame,
+                captionFrame: primary.hasCaption
+                    ? CGRect(
+                        x: margin,
+                        y: primaryFrame.maxY,
+                        width: primaryWidth,
+                        height: captionHeight
+                    ).integral
+                    : nil
             )
         ]
         var sideY = margin
         for item in secondary {
             let cell = CGRect(x: margin + primaryWidth + hSpacing, y: sideY, width: sideWidth, height: sideHeight)
-            placements.append(LayoutPlacement(itemID: item.id, frame: aspectFit(item.aspectRatio, in: cell).integral))
-            sideY += sideHeight + vSpacing
+            let frame = aspectFit(item.aspectRatio, in: cell).integral
+            let captionTop = ceil(sideY + sideHeight)
+            placements.append(
+                LayoutPlacement(
+                    itemID: item.id,
+                    frame: frame,
+                    captionFrame: item.hasCaption
+                        ? CGRect(
+                            x: frame.minX,
+                            y: captionTop,
+                            width: frame.width,
+                            height: captionHeight
+                        ).integral
+                        : nil
+                )
+            )
+            sideY = captionTop + (item.hasCaption ? captionHeight : 0) + vSpacing
         }
-        let height = max(primaryHeight, sideY - vSpacing - margin) + 2 * margin
-        return LayoutResult(size: CGSize(width: width, height: ceil(height)), placements: placements)
+        let primaryBlockHeight = primaryFrame.maxY - margin + primaryCaptionHeight
+        let sideBlockHeight = sideY - vSpacing - margin
+        let height = max(primaryBlockHeight, sideBlockHeight) + 2 * margin
+        return LayoutResult(
+            size: CGSize(width: width, height: ceil(height)),
+            placements: placements,
+            groupCaptions: []
+        )
+    }
+
+    private func groupedLayout(
+        items: [Input],
+        groups: [Group],
+        mode: LayoutMode,
+        width: CGFloat,
+        margin: CGFloat,
+        hSpacing: CGFloat,
+        vSpacing: CGFloat,
+        itemCaptionHeight: CGFloat,
+        groupCaptionHeight: CGFloat
+    ) -> LayoutResult {
+        let contentWidth = width - 2 * margin
+        let groupByItemID = groups.reduce(into: [UUID: Group]()) { result, group in
+            for itemID in group.itemIDs {
+                result[itemID] = group
+            }
+        }
+        let inputByID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        var processedGroups = Set<UUID>()
+        var ungroupedBuffer: [Input] = []
+        var placements: [LayoutPlacement] = []
+        var groupCaptions: [GroupCaptionPlacement] = []
+        var y = margin
+
+        func offset(_ result: LayoutResult, by origin: CGPoint) -> LayoutResult {
+            LayoutResult(
+                size: result.size,
+                placements: result.placements.map { placement in
+                    LayoutPlacement(
+                        itemID: placement.itemID,
+                        frame: placement.frame.offsetBy(dx: origin.x, dy: origin.y),
+                        captionFrame: placement.captionFrame?.offsetBy(dx: origin.x, dy: origin.y)
+                    )
+                },
+                groupCaptions: result.groupCaptions.map { placement in
+                    GroupCaptionPlacement(
+                        groupID: placement.groupID,
+                        frame: placement.frame.offsetBy(dx: origin.x, dy: origin.y)
+                    )
+                }
+            )
+        }
+
+        func append(_ result: LayoutResult) {
+            let shifted = offset(result, by: CGPoint(x: margin, y: y))
+            placements.append(contentsOf: shifted.placements)
+            groupCaptions.append(contentsOf: shifted.groupCaptions)
+            y += result.size.height + vSpacing
+        }
+
+        func flushUngrouped() {
+            guard !ungroupedBuffer.isEmpty else { return }
+            append(
+                ungroupedLayout(
+                    items: ungroupedBuffer,
+                    mode: mode,
+                    canvasWidth: contentWidth,
+                    margin: 0,
+                    horizontalSpacing: hSpacing,
+                    verticalSpacing: vSpacing,
+                    itemCaptionHeight: itemCaptionHeight
+                )
+            )
+            ungroupedBuffer.removeAll()
+        }
+
+        for item in items {
+            guard let group = groupByItemID[item.id] else {
+                ungroupedBuffer.append(item)
+                continue
+            }
+            guard !processedGroups.contains(group.id) else { continue }
+            flushUngrouped()
+            let groupedItems = group.itemIDs.compactMap { inputByID[$0] }
+            if groupedItems.count >= 2 {
+                append(
+                    forcedGroupRow(
+                        items: groupedItems,
+                        group: group,
+                        width: contentWidth,
+                        hSpacing: hSpacing,
+                        itemCaptionHeight: itemCaptionHeight,
+                        groupCaptionHeight: groupCaptionHeight
+                    )
+                )
+            } else {
+                ungroupedBuffer.append(contentsOf: groupedItems)
+            }
+            processedGroups.insert(group.id)
+        }
+        flushUngrouped()
+
+        let height = max(margin * 2, y - vSpacing + margin)
+        return LayoutResult(
+            size: CGSize(width: width, height: ceil(height)),
+            placements: placements,
+            groupCaptions: groupCaptions
+        )
+    }
+
+    private func forcedGroupRow(
+        items: [Input],
+        group: Group,
+        width: CGFloat,
+        hSpacing: CGFloat,
+        itemCaptionHeight: CGFloat,
+        groupCaptionHeight: CGFloat
+    ) -> LayoutResult {
+        let spacing = hSpacing * CGFloat(max(0, items.count - 1))
+        let ratioSum = items.reduce(CGFloat.zero) {
+            $0 + CGFloat(max(0.05, $1.aspectRatio))
+        }
+        let rowHeight = max(1, (width - spacing) / ratioSum)
+        let captionTop = ceil(rowHeight)
+        let hasItemCaptionBand = itemCaptionHeight > 0 && items.contains(where: \.hasCaption)
+        let hasGroupCaption = group.hasCaption && groupCaptionHeight > 0
+        var x: CGFloat = 0
+        var placements: [LayoutPlacement] = []
+
+        for item in items {
+            let itemWidth = rowHeight * CGFloat(max(0.05, item.aspectRatio))
+            let frame = CGRect(x: x, y: 0, width: itemWidth, height: rowHeight).integral
+            placements.append(
+                LayoutPlacement(
+                    itemID: item.id,
+                    frame: frame,
+                    captionFrame: item.hasCaption && hasItemCaptionBand
+                        ? CGRect(
+                            x: frame.minX,
+                            y: captionTop,
+                            width: frame.width,
+                            height: itemCaptionHeight
+                        ).integral
+                        : nil
+                )
+            )
+            x += itemWidth + hSpacing
+        }
+
+        let groupY = captionTop + (hasItemCaptionBand ? itemCaptionHeight : 0)
+        let captions = hasGroupCaption
+            ? [
+                GroupCaptionPlacement(
+                    groupID: group.id,
+                    frame: CGRect(x: 0, y: groupY, width: width, height: groupCaptionHeight).integral
+                )
+            ]
+            : []
+        let height = groupY + (hasGroupCaption ? groupCaptionHeight : 0)
+        return LayoutResult(
+            size: CGSize(width: width, height: ceil(height)),
+            placements: placements,
+            groupCaptions: captions
+        )
     }
 
     private func aspectFit(_ aspectRatio: Double, in rect: CGRect) -> CGRect {

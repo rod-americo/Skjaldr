@@ -125,6 +125,85 @@ struct LayoutEngineTests {
         #expect(elapsed < .milliseconds(150))
     }
 
+    @Test("Legenda individual fica centralizada abaixo da própria imagem")
+    func individualCaptionPlacement() {
+        let captionedID = UUID()
+        let items = [
+            LayoutEngine.Input(
+                id: captionedID,
+                aspectRatio: 1.5,
+                isPrimary: false,
+                hasCaption: true
+            ),
+            LayoutEngine.Input(id: UUID(), aspectRatio: 1.5, isPrimary: false)
+        ]
+        let result = engine.calculate(
+            items: items,
+            mode: .automatic,
+            canvasWidth: 1200,
+            margin: 20,
+            horizontalSpacing: 10,
+            verticalSpacing: 10,
+            itemCaptionHeight: 60
+        )
+        let placement = result.placements.first(where: { $0.itemID == captionedID })!
+        let caption = placement.captionFrame
+
+        #expect(caption != nil)
+        #expect(caption?.minX == placement.frame.minX)
+        #expect(caption?.width == placement.frame.width)
+        #expect(caption?.minY ?? 0 >= placement.frame.maxY)
+        #expect(result.placements.filter { $0.itemID != captionedID }.allSatisfy {
+            $0.captionFrame == nil
+        })
+    }
+
+    @Test("Grupo permanece em uma linha com legenda comum")
+    func groupedRowCaptionPlacement() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let groupID = UUID()
+        let items = [
+            LayoutEngine.Input(id: UUID(), aspectRatio: 1.2, isPrimary: false),
+            LayoutEngine.Input(
+                id: firstID,
+                aspectRatio: 1.5,
+                isPrimary: false,
+                hasCaption: true
+            ),
+            LayoutEngine.Input(id: secondID, aspectRatio: 0.8, isPrimary: false),
+            LayoutEngine.Input(id: UUID(), aspectRatio: 1.8, isPrimary: false)
+        ]
+        let result = engine.calculate(
+            items: items,
+            mode: .automatic,
+            canvasWidth: 1200,
+            margin: 20,
+            horizontalSpacing: 10,
+            verticalSpacing: 10,
+            groups: [
+                LayoutEngine.Group(
+                    id: groupID,
+                    itemIDs: [firstID, secondID],
+                    hasCaption: true
+                )
+            ],
+            itemCaptionHeight: 60,
+            groupCaptionHeight: 70
+        )
+        let groupPlacements = result.placements.filter {
+            $0.itemID == firstID || $0.itemID == secondID
+        }
+        let groupCaption = result.groupCaptions.first
+
+        #expect(groupPlacements.count == 2)
+        #expect(groupPlacements[0].frame.minY == groupPlacements[1].frame.minY)
+        #expect(groupCaption?.groupID == groupID)
+        #expect(groupCaption?.frame.minX == 20)
+        #expect(groupCaption?.frame.maxX == 1180)
+        #expect(groupCaption?.frame.minY ?? 0 >= groupPlacements[0].frame.maxY)
+    }
+
     private func assertNoOverlap(_ placements: [LayoutPlacement]) {
         for first in placements.indices {
             for second in placements.indices where second > first {

@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 final class ProjectStore: ObservableObject {
     @Published private(set) var state: CompositionState
     @Published var selectedItemID: UUID?
+    @Published private(set) var selectedItemIDs = Set<UUID>()
     @Published private(set) var previewImage: NSImage?
     @Published private(set) var previewDimensions = CGSize.zero
     @Published private(set) var approximateFileSize = 0
@@ -23,7 +24,10 @@ final class ProjectStore: ObservableObject {
     private var toastTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
 
-    init(persistence: SessionPersistence = .live()) {
+    init(
+        persistence: SessionPersistence = .live(),
+        restoreMonitorPreference: Bool = true
+    ) {
         self.persistence = persistence
         self.importer = ImageImporter(sourcesDirectory: persistence.sourcesDirectory)
         self.clipboard = ClipboardManager(temporaryDirectory: persistence.temporaryDirectory)
@@ -32,7 +36,8 @@ final class ProjectStore: ObservableObject {
         state.normalizeOrder()
         refreshPreview()
 
-        if UserDefaults.standard.bool(forKey: "monitoramentoAtivo"),
+        if restoreMonitorPreference,
+           UserDefaults.standard.bool(forKey: "monitoramentoAtivo"),
            let path = UserDefaults.standard.string(forKey: "pastaMonitorada") {
             startMonitoring(URL(fileURLWithPath: path))
         }
@@ -41,6 +46,15 @@ final class ProjectStore: ObservableObject {
     var selectedItem: CompositionItem? {
         guard let selectedItemID else { return nil }
         return state.items.first(where: { $0.id == selectedItemID })
+    }
+
+    var selectedGroup: CompositionRowGroup? {
+        guard let selectedItemID else { return nil }
+        return state.rowGroups.first(where: { $0.itemIDs.contains(selectedItemID) })
+    }
+
+    var canCreateRowGroup: Bool {
+        (2...4).contains(selectedItemIDs.count)
     }
 
     var canUndo: Bool { !undoStates.isEmpty }
@@ -82,6 +96,7 @@ final class ProjectStore: ObservableObject {
         next.normalizeOrder()
         commit(next)
         selectedItemID = imported.last?.id
+        selectedItemIDs = Set(imported.map(\.id))
         if failures > 0 {
             showToast("\(failures) arquivo(s) ignorado(s)")
         }
@@ -184,12 +199,19 @@ final class ProjectStore: ObservableObject {
     }
 
     func removeSelected() {
-        guard let id = selectedItemID else { return }
+        let ids = selectedItemIDs.isEmpty
+            ? Set(selectedItemID.map { [$0] } ?? [])
+            : selectedItemIDs
+        guard !ids.isEmpty else { return }
         var next = state
-        next.items.removeAll { $0.id == id }
+        next.items.removeAll { ids.contains($0.id) }
+        for index in next.rowGroups.indices {
+            next.rowGroups[index].itemIDs.removeAll { ids.contains($0) }
+        }
         next.normalizeOrder()
         commit(next)
         selectedItemID = next.items.first?.id
+        selectedItemIDs = Set(selectedItemID.map { [$0] } ?? [])
     }
 
     func duplicateSelected() {
@@ -202,18 +224,95 @@ final class ProjectStore: ObservableObject {
         next.normalizeOrder()
         commit(next)
         selectedItemID = item.id
+        selectedItemIDs = [item.id]
     }
 
     func moveItem(id: UUID, before targetID: UUID) {
-        guard id != targetID,
-              let source = state.items.firstIndex(where: { $0.id == id }),
-              let target = state.items.firstIndex(where: { $0.id == targetID })
-        else { return }
+        guard id != targetID else { return }
         var next = state
-        let item = next.items.remove(at: source)
-        let adjustedTarget = source < target ? target - 1 : target
-        next.items.insert(item, at: max(0, adjustedTarget))
+        let movingIDs = Set(
+            next.rowGroups.first(where: { $0.itemIDs.contains(id) })?.itemIDs ?? [id]
+        )
+        guard !movingIDs.contains(targetID) else { return }
+        let movingItems = next.items.filter { movingIDs.contains($0.id) }
+        guard !movingItems.isEmpty else { return }
+        next.items.removeAll { movingIDs.contains($0.id) }
+
+        let targetGroupIDs = Set(
+            next.rowGroups.first(where: { $0.itemIDs.contains(targetID) })?.itemIDs ?? [targetID]
+        )
+        let targetIndex = next.items.firstIndex(where: { targetGroupIDs.contains($0.id) })
+            ?? next.items.endIndex
+        next.items.insert(contentsOf: movingItems, at: targetIndex)
         next.normalizeOrder()
+        commit(next)
+    }
+
+    func selectItem(_ id: UUID, extending: Bool) {
+        guard state.items.contains(where: { $0.id == id }) else { return }
+        selectedItemID = id
+        if extending {
+            if selectedItemIDs.contains(id) {
+                selectedItemIDs.remove(id)
+                selectedItemID = selectedItemIDs.first
+            } else {
+                selectedItemIDs.insert(id)
+            }
+        } else {
+            selectedItemIDs = [id]
+        }
+    }
+
+    func createRowGroup() {
+        guard canCreateRowGroup else {
+            showError("Selecione de duas a quatro imagens com ⌘-clique.")
+            return
+        }
+        var next = state
+        let selected = selectedItemIDs
+        let orderedIDs = next.items
+            .filter { selected.contains($0.id) }
+            .sorted(by: { $0.order < $1.order })
+            .map(\.id)
+        guard let insertionIndex = next.items.firstIndex(where: { selected.contains($0.id) }) else {
+            return
+        }
+
+        // Uma imagem pertence a no máximo um grupo. Reagrupar dissolve a
+        // participação anterior sem perder as legendas das imagens.
+        for index in next.rowGroups.indices {
+            next.rowGroups[index].itemIDs.removeAll { selected.contains($0) }
+        }
+        next.rowGroups.removeAll { $0.itemIDs.count < 2 }
+
+        let groupedItems = next.items.filter { selected.contains($0.id) }
+        next.items.removeAll { selected.contains($0.id) }
+        next.items.insert(contentsOf: groupedItems, at: min(insertionIndex, next.items.count))
+        next.rowGroups.append(CompositionRowGroup(itemIDs: orderedIDs))
+        next.normalizeOrder()
+        commit(next)
+        selectedItemID = orderedIDs.first
+        selectedItemIDs = Set(orderedIDs)
+        showToast("Imagens agrupadas como linha")
+    }
+
+    func ungroupSelected() {
+        guard let group = selectedGroup else { return }
+        var next = state
+        next.rowGroups.removeAll { $0.id == group.id }
+        next.normalizeOrder()
+        commit(next)
+        showToast("Linha desagrupada")
+    }
+
+    func updateSelectedGroupCaption(_ caption: String) {
+        guard let group = selectedGroup,
+              let index = state.rowGroups.firstIndex(where: { $0.id == group.id })
+        else {
+            return
+        }
+        var next = state
+        next.rowGroups[index].caption = caption
         commit(next)
     }
 
@@ -275,12 +374,14 @@ final class ProjectStore: ObservableObject {
     func newComposition() {
         commit(CompositionState())
         selectedItemID = nil
+        selectedItemIDs.removeAll()
     }
 
     func undo() {
         guard let previous = undoStates.popLast() else { return }
         redoStates.append(state)
         state = previous
+        normalizeSelection()
         persistAndRefresh()
     }
 
@@ -288,6 +389,7 @@ final class ProjectStore: ObservableObject {
         guard let next = redoStates.popLast() else { return }
         undoStates.append(state)
         state = next
+        normalizeSelection()
         persistAndRefresh()
     }
 
@@ -348,6 +450,15 @@ final class ProjectStore: ObservableObject {
         next.normalizeOrder()
         commit(next)
         selectedItemID = item.id
+        selectedItemIDs = [item.id]
+    }
+
+    private func normalizeSelection() {
+        let validIDs = Set(state.items.map(\.id))
+        selectedItemIDs.formIntersection(validIDs)
+        if let selectedItemID, !validIDs.contains(selectedItemID) {
+            self.selectedItemID = selectedItemIDs.first
+        }
     }
 
     private func persistAndRefresh() {
