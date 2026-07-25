@@ -226,7 +226,7 @@ struct CompositionRenderer {
         paragraph.lineBreakMode = .byWordWrapping
         let fontSize = CaptionMetrics.fontSize(canvasWidth: canvasWidth)
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: fontSize, weight: isGroup ? .semibold : .regular),
+            .font: NSFont.systemFont(ofSize: fontSize, weight: .regular),
             .foregroundColor: NSColor(calibratedWhite: 0.12, alpha: 1),
             .paragraphStyle: paragraph
         ]

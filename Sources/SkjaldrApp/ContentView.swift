@@ -74,6 +74,12 @@ struct ContentView: View {
         .onAppear {
             videoStore.startHotKeyMonitoring()
         }
+        .onDeleteCommand {
+            guard store.selectedItemID != nil || !store.selectedItemIDs.isEmpty else {
+                return
+            }
+            store.removeSelected()
+        }
         .animation(.easeOut(duration: 0.18), value: store.toastMessage)
     }
 

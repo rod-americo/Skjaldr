@@ -75,8 +75,7 @@ struct SkjaldrApp: App {
                     .keyboardShortcut("g", modifiers: [.command, .shift])
                     .disabled(store.selectedGroup == nil)
                 Button("Remover imagem selecionada") { store.removeSelected() }
-                    .keyboardShortcut(.delete, modifiers: [])
-                    .disabled(store.selectedItemID == nil)
+                    .disabled(store.selectedItemID == nil && store.selectedItemIDs.isEmpty)
                 Divider()
                 Button(store.monitor.isRunning ? "Parar monitoramento" : "Iniciar monitoramento") {
                     store.toggleMonitoring()
