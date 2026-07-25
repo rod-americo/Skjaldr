@@ -31,9 +31,14 @@ final class ProjectStore: ObservableObject {
         self.persistence = persistence
         self.importer = ImageImporter(sourcesDirectory: persistence.sourcesDirectory)
         self.clipboard = ClipboardManager(temporaryDirectory: persistence.temporaryDirectory)
-        self.state = persistence.load() ?? CompositionState()
+        var restoredState = persistence.load() ?? CompositionState()
+        let migrated = restoredState.migrateIfNeeded()
+        self.state = restoredState
         state.items.removeAll { !FileManager.default.fileExists(atPath: $0.sourceURL.path) }
         state.normalizeOrder()
+        if migrated {
+            try? persistence.save(state)
+        }
         refreshPreview()
 
         if restoreMonitorPreference,

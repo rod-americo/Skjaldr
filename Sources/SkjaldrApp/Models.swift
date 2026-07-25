@@ -63,7 +63,7 @@ struct CompositionRowGroup: Identifiable, Codable, Equatable {
 
 struct OutputProfile: Codable, Equatable {
     var name = "Laudo padrão"
-    var preferredWidth = 1800
+    var preferredWidth = 750
     var maximumWidth = 4000
     var maximumHeight = 12000
     var format: OutputFormat = .png
@@ -106,6 +106,7 @@ struct OutputProfile: Codable, Equatable {
 }
 
 struct CompositionState: Codable, Equatable {
+    var schemaVersion = 2
     var id = UUID()
     var createdAt = Date()
     var updatedAt = Date()
@@ -121,6 +122,17 @@ struct CompositionState: Codable, Equatable {
         }
         normalizeGroups()
         updatedAt = Date()
+    }
+
+    @discardableResult
+    mutating func migrateIfNeeded() -> Bool {
+        guard schemaVersion < 2 else { return false }
+        if outputProfile.name == OutputProfile.report.name,
+           outputProfile.preferredWidth == 1800 {
+            outputProfile.preferredWidth = OutputProfile.report.preferredWidth
+        }
+        schemaVersion = 2
+        return true
     }
 
     private mutating func normalizeGroups() {
@@ -142,6 +154,7 @@ struct CompositionState: Codable, Equatable {
 
 extension CompositionState {
     private enum CodingKeys: String, CodingKey {
+        case schemaVersion
         case id
         case createdAt
         case updatedAt
@@ -154,6 +167,7 @@ extension CompositionState {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         id = try container.decode(UUID.self, forKey: .id)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
@@ -166,6 +180,7 @@ extension CompositionState {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(id, forKey: .id)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)

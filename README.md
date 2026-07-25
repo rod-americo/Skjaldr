@@ -32,7 +32,7 @@ Implementado:
 - recorte manual não destrutivo;
 - remoção conservadora de bordas uniformes na importação;
 - fundo branco, margem, espaçamento e largura configuráveis;
-- perfis Laudo padrão, Alta resolução e Imagem compacta;
+- perfis Laudo padrão (750 px), Alta resolução e Imagem compacta;
 - renderização integral a partir dos arquivos originais;
 - legendas individuais centralizadas abaixo de cada imagem;
 - agrupamento estável de duas a quatro imagens em uma linha;

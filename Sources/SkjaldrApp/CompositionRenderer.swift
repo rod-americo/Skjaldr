@@ -203,13 +203,9 @@ struct CompositionRenderer {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         paragraph.lineBreakMode = .byWordWrapping
-        let captionScale: CGFloat = 1.6
         let fontSize = max(
-            12 * captionScale,
-            min(
-                (isGroup ? 22 : 20) * captionScale,
-                destination.width * 0.022 * captionScale
-            )
+            12,
+            min(isGroup ? 22 : 20, destination.width * 0.022)
         )
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontSize, weight: isGroup ? .semibold : .regular),

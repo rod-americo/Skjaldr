@@ -31,7 +31,7 @@ struct RendererClipboardTests {
             )
 
             let result = try CompositionRenderer().render(state: state)
-            #expect(Int(result.size.width) == 1800)
+            #expect(Int(result.size.width) == 750)
             #expect(result.size.height > 0)
             #expect(result.pngData.count > 100)
 
@@ -236,13 +236,20 @@ struct RendererClipboardTests {
             JSONSerialization.jsonObject(with: encoded) as? [String: Any]
         )
         object.removeValue(forKey: "rowGroups")
+        object.removeValue(forKey: "schemaVersion")
         let legacyData = try JSONSerialization.data(withJSONObject: object)
 
-        let restored = try JSONDecoder.project.decode(CompositionState.self, from: legacyData)
+        var restored = try JSONDecoder.project.decode(CompositionState.self, from: legacyData)
+        restored.outputProfile.preferredWidth = 1800
 
         #expect(restored.id == state.id)
         #expect(restored.layoutMode == .grid)
         #expect(restored.rowGroups.isEmpty)
+        #expect(restored.schemaVersion == 1)
+        let didMigrate = restored.migrateIfNeeded()
+        #expect(didMigrate)
+        #expect(restored.schemaVersion == 2)
+        #expect(restored.outputProfile.preferredWidth == 750)
     }
 
     @MainActor
