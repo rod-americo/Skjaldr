@@ -43,7 +43,7 @@ Implementado:
 - desfazer e refazer;
 - recuperação local da sessão;
 - remoção de metadados identificáveis na nova codificação;
-- arraste com representação PNG e arquivo temporário;
+- arraste da pré-visualização como arquivo PNG temporário, equivalente ao Finder;
 - testes automatizados de layout, renderização, pasteboard e persistência.
 
 ## Requisitos

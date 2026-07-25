@@ -27,6 +27,7 @@ Cobertura atual:
 - renderização de uma única imagem PNG;
 - ausência de GPS e dicionário TIFF herdado;
 - publicação de PNG e TIFF, sem URL no mesmo item;
+- arraste publicado como URL de arquivo, sem `public.png` concorrente;
 - reconstrução do pasteboard como `NSImage`;
 - recuperação da sessão JSON.
 

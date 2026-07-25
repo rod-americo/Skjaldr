@@ -168,35 +168,19 @@ final class ProjectStore: ObservableObject {
     }
 
     func dragProvider() -> NSItemProvider {
-        let provider = NSItemProvider()
         do {
             let result = try renderer.render(state: state)
-            try FileManager.default.createDirectory(
-                at: persistence.temporaryDirectory,
-                withIntermediateDirectories: true
-            )
-            let fileURL = persistence.temporaryDirectory
-                .appendingPathComponent("composicao-arrastada-\(UUID().uuidString)")
-                .appendingPathExtension("png")
-            try result.pngData.write(to: fileURL, options: .atomic)
-            provider.registerDataRepresentation(forTypeIdentifier: UTType.png.identifier, visibility: .all) {
-                completion in
-                completion(result.pngData, nil)
-                return nil
-            }
-            provider.registerFileRepresentation(
-                forTypeIdentifier: UTType.png.identifier,
-                fileOptions: [.openInPlace],
-                visibility: .all
-            ) { completion in
-                completion(fileURL, false, nil)
-                return nil
-            }
-            provider.suggestedName = "composicao.png"
+            return try CompositionDragProvider()
+                .prepare(
+                    pngData: result.pngData,
+                    temporaryDirectory: persistence.temporaryDirectory
+                )
+                .provider
         } catch {
+            let provider = NSItemProvider()
             provider.suggestedName = "composicao-indisponivel.png"
+            return provider
         }
-        return provider
     }
 
     func removeSelected() {

@@ -154,6 +154,22 @@ struct RendererClipboardTests {
         }
     }
 
+    @Test("Arraste anuncia somente uma URL de arquivo PNG")
+    func dragPublishesFileURL() throws {
+        try withTemporaryDirectory { directory in
+            let pngData = Data([0x89, 0x50, 0x4E, 0x47])
+            let drag = try CompositionDragProvider().prepare(
+                pngData: pngData,
+                temporaryDirectory: directory
+            )
+
+            #expect(drag.provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier))
+            #expect(!drag.provider.hasItemConformingToTypeIdentifier(UTType.png.identifier))
+            #expect(drag.provider.suggestedName == "composicao.png")
+            #expect(try Data(contentsOf: drag.fileURL) == pngData)
+        }
+    }
+
     private func withTemporaryDirectory(_ operation: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("SkjaldrTests-\(UUID().uuidString)", isDirectory: true)

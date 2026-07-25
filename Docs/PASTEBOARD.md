@@ -15,7 +15,11 @@ O arquivo temporário criado durante o arraste contém exatamente o PNG renderiz
 
 ## Decisão sobre URL de arquivo
 
-O protótipo inicial publicou `public.file-url` junto com PNG e TIFF, como previsto na análise de risco. No ensaio com `contenteditable` do Safari, o WebKit consumiu a colagem mas não inseriu a imagem. A URL no mesmo item foi removida, preservando PNG/TIFF como representações inequívocas. O arraste continua fornecendo arquivo temporário por `NSItemProvider`.
+O protótipo inicial publicou `public.file-url` junto com PNG e TIFF no clipboard, como previsto na análise de risco. No ensaio com `contenteditable` do Safari, o WebKit consumiu a colagem mas não inseriu a imagem. A URL foi removida da operação de copiar, preservando PNG/TIFF como representações inequívocas.
+
+O arraste segue a estratégia oposta: cria um PNG temporário e publica somente `public.file-url`/`public.url` por `NSURL`, sem uma representação `public.png` concorrente. Assim, o destino recebe o gesto como arquivo vindo do Finder e percorre o mesmo caminho de upload que já funciona em editores HTML embarcados.
+
+Arquivos de arraste com mais de 24 horas são eliminados quando um novo arraste é iniciado.
 
 ## Por que não publicar HTML ou RTF?
 
