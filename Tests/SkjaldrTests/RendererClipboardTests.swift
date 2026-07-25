@@ -314,6 +314,52 @@ struct RendererClipboardTests {
         }
     }
 
+    @MainActor
+    @Test("Monitoramento importa arquivo sobrescrito após nova composição")
+    func monitoringSurvivesNewComposition() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SkjaldrMonitorTests-\(UUID().uuidString)", isDirectory: true)
+        let watchedDirectory = directory.appendingPathComponent("Capturas", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: watchedDirectory,
+            withIntermediateDirectories: true
+        )
+        let persistence = SessionPersistence(
+            rootDirectory: directory.appendingPathComponent("Sessao", isDirectory: true)
+        )
+        let store = ProjectStore(
+            persistence: persistence,
+            restoreMonitorPreference: false
+        )
+        defer {
+            store.stopMonitoring()
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        _ = try makeImage(
+            in: watchedDirectory,
+            name: "captura-reutilizada",
+            width: 640,
+            height: 480,
+            color: .black
+        )
+        store.startMonitoring(watchedDirectory)
+        store.newComposition()
+        try await Task.sleep(for: .milliseconds(20))
+        _ = try makeImage(
+            in: watchedDirectory,
+            name: "captura-reutilizada",
+            width: 640,
+            height: 480,
+            color: .darkGray
+        )
+
+        try await Task.sleep(for: .seconds(2))
+
+        #expect(store.monitor.isRunning)
+        #expect(store.state.items.count == 1)
+    }
+
     private func withTemporaryDirectory(_ operation: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("SkjaldrTests-\(UUID().uuidString)", isDirectory: true)
