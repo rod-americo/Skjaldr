@@ -347,19 +347,15 @@ struct ContentView: View {
                     Text(OutputProfile.compact.name).tag(OutputProfile.compact.name)
                 }
 
-                LabeledContent("Largura") {
-                    TextField(
-                        "px",
-                        value: Binding(
-                            get: { store.state.outputProfile.preferredWidth },
-                            set: store.setOutputWidth
-                        ),
-                        format: .number
-                    )
-                    .frame(width: 72)
-                    Text("px")
-                        .foregroundStyle(.secondary)
-                }
+                Stepper(
+                    "Largura: \(store.state.outputProfile.preferredWidth) px",
+                    value: Binding(
+                        get: { store.state.outputProfile.preferredWidth },
+                        set: store.setOutputWidth
+                    ),
+                    in: 320...store.state.outputProfile.maximumWidth,
+                    step: 50
+                )
 
                 Stepper(
                     "Margem: \(store.state.outputProfile.outerMargin) px",
