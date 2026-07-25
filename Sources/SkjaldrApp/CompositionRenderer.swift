@@ -38,6 +38,22 @@ enum RenderError: LocalizedError {
     }
 }
 
+enum CaptionMetrics {
+    static let referenceWidth: CGFloat = 750
+
+    static func scale(canvasWidth: CGFloat) -> CGFloat {
+        max(0.75, canvasWidth / referenceWidth)
+    }
+
+    static func bandHeight(canvasWidth: CGFloat) -> CGFloat {
+        32 * scale(canvasWidth: canvasWidth)
+    }
+
+    static func fontSize(canvasWidth: CGFloat) -> CGFloat {
+        14 * scale(canvasWidth: canvasWidth)
+    }
+}
+
 struct CompositionRenderer {
     let layoutEngine = LayoutEngine()
 
@@ -65,6 +81,7 @@ struct CompositionRenderer {
 
         func calculateLayout(width: Int) -> LayoutResult {
             let renderScale = CGFloat(width) / CGFloat(profile.preferredWidth)
+            let captionHeight = CaptionMetrics.bandHeight(canvasWidth: CGFloat(width))
             return layoutEngine.calculate(
                 items: inputs,
                 mode: state.layoutMode,
@@ -73,8 +90,8 @@ struct CompositionRenderer {
                 horizontalSpacing: CGFloat(profile.horizontalSpacing) * renderScale,
                 verticalSpacing: CGFloat(profile.verticalSpacing) * renderScale,
                 groups: groups,
-                itemCaptionHeight: 64 * renderScale,
-                groupCaptionHeight: 72 * renderScale
+                itemCaptionHeight: captionHeight,
+                groupCaptionHeight: captionHeight
             )
         }
 
@@ -121,6 +138,7 @@ struct CompositionRenderer {
                     item.caption,
                     inTopLeftFrame: captionFrame,
                     canvasHeight: layout.size.height,
+                    canvasWidth: layout.size.width,
                     isGroup: false
                 )
             }
@@ -133,6 +151,7 @@ struct CompositionRenderer {
                 group.caption,
                 inTopLeftFrame: placement.frame,
                 canvasHeight: layout.size.height,
+                canvasWidth: layout.size.width,
                 isGroup: true
             )
         }
@@ -182,6 +201,7 @@ struct CompositionRenderer {
         _ caption: String,
         inTopLeftFrame topFrame: CGRect,
         canvasHeight: CGFloat,
+        canvasWidth: CGFloat,
         isGroup: Bool
     ) {
         guard !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -204,10 +224,7 @@ struct CompositionRenderer {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         paragraph.lineBreakMode = .byWordWrapping
-        let fontSize = max(
-            12,
-            min(isGroup ? 22 : 20, destination.width * 0.022)
-        )
+        let fontSize = CaptionMetrics.fontSize(canvasWidth: canvasWidth)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontSize, weight: isGroup ? .semibold : .regular),
             .foregroundColor: NSColor(calibratedWhite: 0.12, alpha: 1),
@@ -217,7 +234,11 @@ struct CompositionRenderer {
             string: caption.trimmingCharacters(in: .whitespacesAndNewlines),
             attributes: attributes
         )
-        let available = destination.insetBy(dx: 12, dy: 8)
+        let metricScale = CaptionMetrics.scale(canvasWidth: canvasWidth)
+        let available = destination.insetBy(
+            dx: 6 * metricScale,
+            dy: 3 * metricScale
+        )
         let measured = text.boundingRect(
             with: available.size,
             options: [.usesLineFragmentOrigin, .usesFontLeading]

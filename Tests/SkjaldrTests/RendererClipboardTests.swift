@@ -220,9 +220,17 @@ struct RendererClipboardTests {
             let captionHeight = captioned.size.height - plain.size.height
 
             #expect(captioned.size.height > plain.size.height)
-            #expect(captionHeight <= 140)
+            #expect(captionHeight <= 64)
             #expect(captioned.pngData != plain.pngData)
         }
+    }
+
+    @Test("Fonte das legendas depende da composição, não da imagem")
+    func captionTypographyIsUniformWithinComposition() {
+        let compositionWidth: CGFloat = 750
+
+        #expect(CaptionMetrics.fontSize(canvasWidth: compositionWidth) == 14)
+        #expect(CaptionMetrics.bandHeight(canvasWidth: compositionWidth) == 32)
     }
 
     @Test("Sessão anterior sem grupos continua compatível")
