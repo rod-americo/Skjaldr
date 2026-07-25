@@ -233,6 +233,14 @@ struct RendererClipboardTests {
         #expect(CaptionMetrics.bandHeight(canvasWidth: compositionWidth) == 32)
     }
 
+    @Test("Delete e Forward Delete removem imagens sem modificadores")
+    func imageDeletionShortcutRecognizesBothMacKeys() {
+        #expect(ImageDeletionShortcut.matches(keyCode: 51, modifiers: []))
+        #expect(ImageDeletionShortcut.matches(keyCode: 117, modifiers: [.function]))
+        #expect(!ImageDeletionShortcut.matches(keyCode: 51, modifiers: [.command]))
+        #expect(!ImageDeletionShortcut.matches(keyCode: 36, modifiers: []))
+    }
+
     @Test("Sessão anterior sem grupos continua compatível")
     func legacySessionMigration() throws {
         var state = CompositionState()

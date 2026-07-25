@@ -2,11 +2,27 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum ImageDeletionShortcut {
+    static func matches(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+        let isDeleteKey = keyCode == 51 || keyCode == 117
+        let conflictingModifiers = modifiers.intersection([.command, .control, .option])
+        return isDeleteKey && conflictingModifiers.isEmpty
+    }
+
+    static func matches(_ event: NSEvent) -> Bool {
+        matches(
+            keyCode: event.keyCode,
+            modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        )
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject private var store: ProjectStore
     @EnvironmentObject private var videoStore: VideoRecorderStore
     @State private var isDropTarget = false
     @State private var previewScale: CGFloat = 0.82
+    @State private var deleteKeyMonitor: Any?
 
     var body: some View {
         HSplitView {
@@ -73,6 +89,10 @@ struct ContentView: View {
         }
         .onAppear {
             videoStore.startHotKeyMonitoring()
+            startDeleteKeyMonitoring()
+        }
+        .onDisappear {
+            stopDeleteKeyMonitoring()
         }
         .onDeleteCommand {
             guard store.selectedItemID != nil || !store.selectedItemIDs.isEmpty else {
@@ -81,6 +101,28 @@ struct ContentView: View {
             store.removeSelected()
         }
         .animation(.easeOut(duration: 0.18), value: store.toastMessage)
+    }
+
+    private func startDeleteKeyMonitoring() {
+        guard deleteKeyMonitor == nil else { return }
+        deleteKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard ImageDeletionShortcut.matches(event),
+                  let keyWindow = NSApp.keyWindow,
+                  !(keyWindow is NSPanel),
+                  !(keyWindow.firstResponder is NSTextView),
+                  store.selectedItemID != nil || !store.selectedItemIDs.isEmpty
+            else {
+                return event
+            }
+            store.removeSelected()
+            return nil
+        }
+    }
+
+    private func stopDeleteKeyMonitoring() {
+        guard let deleteKeyMonitor else { return }
+        NSEvent.removeMonitor(deleteKeyMonitor)
+        self.deleteKeyMonitor = nil
     }
 
     private var recordingIndicator: some View {
@@ -144,6 +186,7 @@ struct ContentView: View {
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
+                                NSApp.keyWindow?.makeFirstResponder(nil)
                                 let modifiers = NSEvent.modifierFlags
                                 store.selectItem(
                                     item.id,
