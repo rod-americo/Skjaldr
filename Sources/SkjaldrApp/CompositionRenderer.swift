@@ -72,8 +72,8 @@ struct CompositionRenderer {
                 horizontalSpacing: CGFloat(profile.horizontalSpacing) * renderScale,
                 verticalSpacing: CGFloat(profile.verticalSpacing) * renderScale,
                 groups: groups,
-                itemCaptionHeight: 112 * renderScale,
-                groupCaptionHeight: 120 * renderScale
+                itemCaptionHeight: 64 * renderScale,
+                groupCaptionHeight: 72 * renderScale
             )
         }
 
@@ -203,7 +203,10 @@ struct CompositionRenderer {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
         paragraph.lineBreakMode = .byWordWrapping
-        let fontSize = max(12, min(isGroup ? 24 : 22, destination.height * 0.20))
+        let fontSize = max(
+            12,
+            min(isGroup ? 22 : 20, destination.width * 0.022)
+        )
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: fontSize, weight: isGroup ? .semibold : .regular),
             .foregroundColor: NSColor(calibratedWhite: 0.12, alpha: 1),

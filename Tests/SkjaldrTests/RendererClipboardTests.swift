@@ -217,8 +217,10 @@ struct RendererClipboardTests {
 
             let captioned = try CompositionRenderer().render(state: captionedState)
             let plain = try CompositionRenderer().render(state: plainState)
+            let captionHeight = captioned.size.height - plain.size.height
 
             #expect(captioned.size.height > plain.size.height)
+            #expect(captionHeight <= 140)
             #expect(captioned.pngData != plain.pngData)
         }
     }
