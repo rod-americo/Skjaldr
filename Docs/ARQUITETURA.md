@@ -49,6 +49,22 @@ para o nome final após o encerramento correto da gravação.
 saída e última região normalizada por orientação. `GlobalHotKeyController`
 registra `⌘⇧9` pelo mecanismo nativo de hotkeys do macOS.
 
+### Assinatura e instalação
+
+O build Release é assinado com um certificado Developer ID fixado por
+fingerprint SHA-1. O script valida `io.skjaldr.app`, o Team ID
+`LCQ4JFLH3Z`, a assinatura completa e a exigência designada produzida pelo
+`codesign`. O Hardened Runtime permanece ativo e o bundle incorpora somente o
+entitlement público `com.apple.security.device.audio-input`, necessário para
+que os modos com microfone possam solicitar autorização ao TCC.
+
+O instalador compara a exigência designada do bundle novo com a do app já
+instalado antes de substituir `/Applications/Skjaldr.app`. Uma identidade
+diferente interrompe a instalação, pois o TCC do macOS a trataria como outro
+aplicativo e invalidaria as permissões de captura. A substituição usa uma cópia
+temporária verificada e mantém a versão anterior disponível para restauração
+até a troca terminar.
+
 ### Modelo do projeto
 
 `CompositionState` é um valor `Codable` que contém itens, grupos de linha, layout e perfil de saída. `CompositionItem` registra apenas a URL da cópia local, dimensões, recorte normalizado, legenda, ordem e destaque. `CompositionRowGroup` guarda um conjunto ordenado e estável de duas a quatro imagens e sua legenda comum. A imagem original não é serializada dentro do JSON.
@@ -114,3 +130,5 @@ Durante a finalização, novos inícios permanecem desabilitados.
 - falha inesperada da captura encerra o stream e remove somente seu temporário;
 - encerrar o aplicativo durante uma gravação aguarda a finalização do MP4;
 - alteração ou remoção da tela selecionada encerra a sessão com erro visível.
+- mudança da identidade assinada interrompe a instalação antes de afetar o app
+  autorizado.

@@ -74,6 +74,32 @@ enum VideoRecordingPhase: String, Equatable {
     var isBusy: Bool { self != .idle }
 }
 
+enum VideoPrivacySettingsTarget: Equatable {
+    case screenCapture
+    case microphone
+
+    var buttonTitle: String {
+        switch self {
+        case .screenCapture: "Abrir Ajustes da Gravação de Tela"
+        case .microphone: "Abrir Ajustes do Microfone"
+        }
+    }
+
+    var settingsURL: URL? {
+        let pane: String
+        switch self {
+        case .screenCapture:
+            pane = "Privacy_ScreenCapture"
+        case .microphone:
+            pane = "Privacy_Microphone"
+        }
+        return URL(
+            string: "x-apple.systempreferences:"
+                + "com.apple.preference.security?\(pane)"
+        )
+    }
+}
+
 struct MicrophoneSource: Identifiable, Hashable {
     let id: String
     let name: String
@@ -206,7 +232,10 @@ enum VideoRecordingError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .screenPermissionDenied:
-            "Permita a gravação de tela em Ajustes do Sistema > Privacidade e Segurança."
+            """
+            Permita a gravação de tela em Ajustes do Sistema > Privacidade e \
+            Segurança. Depois de autorizar, encerre e reabra o Skjaldr.
+            """
         case .microphonePermissionDenied:
             "Permita o uso do microfone em Ajustes do Sistema > Privacidade e Segurança."
         case .displayUnavailable:

@@ -239,6 +239,21 @@ correspondentes, permissão de microfone.
   aplicativos ou nomes completos de arquivos.
 - Manter a política de privacidade local já adotada pelo Skjaldr.
 
+## Assinatura e instalação local
+
+Para que o TCC preserve as autorizações entre compilações:
+
+- assinar todos os builds com o mesmo certificado Developer ID;
+- fixar o certificado pelo fingerprint, sem seleção implícita por nome;
+- manter `io.skjaldr.app`, o Team ID e a exigência designada estáveis;
+- instalar e executar somente `/Applications/Skjaldr.app`;
+- recusar a instalação se a exigência designada do bundle novo diferir da
+  versão instalada;
+- manter Hardened Runtime e incorporar o entitlement público
+  `com.apple.security.device.audio-input`;
+- não usar entitlement privado para gravação de tela ou para contornar o TCC;
+- verificar assinatura, identidade, entitlement e cópia final em cada build.
+
 ## Arquitetura
 
 Usar preferencialmente:
@@ -330,7 +345,9 @@ O MVP estará pronto quando:
 11. as últimas escolhas e regiões válidas serem restauradas após reiniciar o
     aplicativo;
 12. o compositor de imagens e seus testes continuarem funcionando sem mudança
-    de comportamento.
+    de comportamento;
+13. recompilar e reinstalar o app não exigir nova autorização de tela ou
+    microfone.
 
 ## Estratégia de implementação
 

@@ -42,17 +42,28 @@ o temporário daquela gravação.
 A permissão de gravação de tela é solicitada ao iniciar a primeira captura. A
 permissão de microfone só é solicitada nos modos `Microfone` e `Sistema +
 microfone`. O Skjaldr não mantém essas permissões; elas são administradas pelo
-macOS em Privacidade e Segurança.
+macOS em Privacidade e Segurança. Erros de tela e microfone são diferenciados,
+e cada um abre diretamente o painel correspondente dos Ajustes do Sistema.
 
 O áudio do próprio Skjaldr é excluído da captura do sistema. Nenhuma imagem ou
 amostra de áudio é enviada a outro processo pelo aplicativo.
 
+O bundle assinado declara somente o entitlement público de entrada de áudio,
+necessário para o microfone sob Hardened Runtime. Não usa entitlement privado
+para contornar o TCC nem para capturar a tela sem consentimento.
+
 ## Logs
 
-O código do aplicativo não usa `print`, `NSLog` ou logger próprio. Mensagens ao usuário são genéricas e não incluem caminho nem nome da fonte.
+O aplicativo registra apenas eventos técnicos da inicialização da captura e
+mensagens genéricas de erro pelo logger unificado do macOS. Não registra
+pixels, áudio, caminho de saída nem nome de arquivos ou fontes.
 
 ## Limites
 
 O pasteboard do macOS é compartilhado entre aplicativos. Depois de copiar, outros processos com acesso ao pasteboard podem ler a composição. Essa é uma característica necessária do fluxo solicitado; políticas institucionais do equipamento continuam aplicáveis.
 
-A versão local ad hoc não está em sandbox. Isso permite monitorar a pasta escolhida sem persistir bookmark de segurança. Uma distribuição pela Mac App Store exigirá sandbox, seletor de pasta e bookmark com escopo de segurança.
+A versão local assinada com Developer ID não está em sandbox. Isso permite
+monitorar a pasta escolhida sem persistir bookmark de segurança. A exigência
+designada da assinatura permanece estável entre compilações para que o macOS
+associe as permissões sempre ao mesmo aplicativo. Uma distribuição pela Mac App
+Store exigirá sandbox, seletor de pasta e bookmark com escopo de segurança.

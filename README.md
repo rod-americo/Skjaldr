@@ -98,18 +98,31 @@ open /Applications/Skjaldr.app
 
 Na primeira gravação, o macOS solicitará as permissões correspondentes de tela
 e microfone. O microfone só é solicitado quando fizer parte do modo de áudio.
+Depois de autorizar a gravação de tela pela primeira vez, encerre e reabra o
+Skjaldr antes de iniciar a captura. Se uma autorização for negada, o alerta
+abre diretamente o painel correto para gravação de tela ou microfone.
 
-O pacote é assinado com a identidade Developer ID configurada no chaveiro e
-deve ser instalado em `/Applications` para que a identidade usada pelas
-permissões do macOS permaneça estável. Notarização só é necessária para
-distribuir o aplicativo a outras pessoas.
+O pacote é assinado com um certificado Developer ID fixado pelo fingerprint
+SHA-1 e instalado em `/Applications`. O instalador compara a exigência
+designada da versão nova com a já instalada e recusa a atualização se as
+identidades forem diferentes. Assim o macOS reconhece recompilações como
+versões do mesmo aplicativo e preserva a permissão de gravação.
 
-Para usar outra identidade de assinatura:
+O Hardened Runtime é mantido ativo. O único entitlement de captura incorporado
+é o de entrada de áudio exigido pelo macOS para solicitar acesso ao microfone;
+a gravação de tela continua protegida exclusivamente pelo consentimento em
+Privacidade e Segurança.
+
+Para trocar deliberadamente o certificado:
 
 ```bash
-SKJALDR_CODESIGN_IDENTITY="Developer ID Application: Nome (TEAMID)" \
+SKJALDR_CODESIGN_CERTIFICATE="FINGERPRINT_SHA1" \
   ./Scripts/compilar-app.sh
 ```
+
+Trocar o certificado também troca a identidade do aplicativo perante o macOS e
+exige uma nova autorização. Notarização só é necessária para distribuir o
+aplicativo a outras pessoas.
 
 ## Uso rápido
 

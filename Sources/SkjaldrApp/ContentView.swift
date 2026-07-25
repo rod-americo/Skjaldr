@@ -53,15 +53,16 @@ struct ContentView: View {
             "Não foi possível gravar",
             isPresented: Binding(
                 get: { videoStore.lastErrorMessage != nil },
-                set: { if !$0 { videoStore.lastErrorMessage = nil } }
+                set: { if !$0 { videoStore.clearError() } }
             ),
             actions: {
-                Button("Abrir Ajustes de Privacidade") {
-                    openPrivacySettings()
-                    videoStore.lastErrorMessage = nil
+                if let target = videoStore.privacySettingsTarget {
+                    Button(target.buttonTitle) {
+                        videoStore.openRelevantPrivacySettings()
+                    }
                 }
                 Button("OK") {
-                    videoStore.lastErrorMessage = nil
+                    videoStore.clearError()
                 }
             },
             message: { Text(videoStore.lastErrorMessage ?? "") }
@@ -517,15 +518,6 @@ struct ContentView: View {
             .disabled(store.state.items.isEmpty)
             .keyboardShortcut("c", modifiers: .command)
         }
-    }
-
-    private func openPrivacySettings() {
-        guard let url = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-        ) else {
-            return
-        }
-        NSWorkspace.shared.open(url)
     }
 
     private func icon(for mode: LayoutMode) -> String {

@@ -16,7 +16,8 @@
 - não há indicador específico de ampliação de uma fonte pequena;
 - JPEG é disponível no salvamento pelo perfil compacto, mas a ação principal de clipboard publica PNG/TIFF;
 - compatibilidade com aplicativos de terceiros exige a matriz manual;
-- assinatura Developer ID e notarização não fazem parte do artefato local;
+- assinatura Developer ID estável faz parte do artefato local; notarização
+  continua fora do escopo do uso pessoal;
 - o vídeo oferece apenas as proporções 6:13 e 13:6;
 - resolução, codec e 30 fps são fixos;
 - não há preview, edição, webcam, GIF, zoom ou anotação de vídeo;
@@ -64,9 +65,6 @@
 ### Distribuição
 
 - ícone final e identidade visual;
-- projeto de assinatura;
-- Hardened Runtime;
-- Developer ID;
 - notarização;
 - atualizações assinadas, sem telemetria.
 

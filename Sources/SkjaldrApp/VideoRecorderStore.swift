@@ -3,6 +3,7 @@ import AVFoundation
 import Combine
 import CoreGraphics
 import Foundation
+import OSLog
 
 @MainActor
 final class VideoRecorderStore: ObservableObject {
@@ -24,11 +25,17 @@ final class VideoRecorderStore: ObservableObject {
     @Published private(set) var lastRecordingURL: URL?
     @Published var isConfigurationPresented = false
     @Published var lastErrorMessage: String?
+    @Published private(set) var privacySettingsTarget:
+        VideoPrivacySettingsTarget?
     @Published var toastMessage: String?
 
     private let preferences: VideoCapturePreferences
     private let selector = VideoRegionSelectionController()
     private let recorder = ScreenCaptureRecorder()
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "io.skjaldr.app",
+        category: "VideoCapture"
+    )
     private var operationTask: Task<Void, Never>?
     private var durationTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
@@ -158,6 +165,17 @@ final class VideoRecorderStore: ObservableObject {
         NSWorkspace.shared.open(outputDirectory)
     }
 
+    func openRelevantPrivacySettings() {
+        guard let url = privacySettingsTarget?.settingsURL else { return }
+        NSWorkspace.shared.open(url)
+        clearError()
+    }
+
+    func clearError() {
+        lastErrorMessage = nil
+        privacySettingsTarget = nil
+    }
+
     func prepareForApplicationTermination(completion: @escaping () -> Void) {
         isConfigurationPresented = false
         switch phase {
@@ -181,6 +199,22 @@ final class VideoRecorderStore: ObservableObject {
     }
 
     private func selectAndStart() async {
+        phase = .preparing
+
+        do {
+            try await requestRequiredPermissions()
+            try validateAudioSelection()
+        } catch {
+            resetToIdle()
+            showError(error)
+            return
+        }
+
+        guard !Task.isCancelled else {
+            resetToIdle()
+            return
+        }
+
         phase = .selecting
         let storedRegion = preferences.storedRegion(for: preset)
         guard let selection = await selector.selectRegion(
@@ -202,8 +236,6 @@ final class VideoRecorderStore: ObservableObject {
         phase = .preparing
 
         do {
-            try await requestRequiredPermissions()
-            try validateAudioSelection()
             try await recorder.start(
                 selection: selection,
                 preset: preset,
@@ -246,11 +278,11 @@ final class VideoRecorderStore: ObservableObject {
 
     private func requestRequiredPermissions() async throws {
         if !CGPreflightScreenCaptureAccess() {
-            // No macOS 26, o preflight pode continuar retornando `false` para
-            // builds locais ad hoc mesmo quando o app está habilitado em
-            // Privacidade. Solicitar o acesso continua correto, mas a decisão
-            // final deve vir do ScreenCaptureKit ao abrir o stream.
-            _ = CGRequestScreenCaptureAccess()
+            logger.notice("Solicitando permissão de gravação de tela")
+            let granted = CGRequestScreenCaptureAccess()
+            guard granted || CGPreflightScreenCaptureAccess() else {
+                throw VideoRecordingError.screenPermissionDenied
+            }
         }
 
         guard audioMode.capturesMicrophone else { return }
@@ -324,7 +356,21 @@ final class VideoRecorderStore: ObservableObject {
     }
 
     private func showError(_ error: Error) {
-        lastErrorMessage = (error as? LocalizedError)?.errorDescription
+        let message = (error as? LocalizedError)?.errorDescription
             ?? error.localizedDescription
+        if let recordingError = error as? VideoRecordingError {
+            switch recordingError {
+            case .screenPermissionDenied:
+                privacySettingsTarget = .screenCapture
+            case .microphonePermissionDenied:
+                privacySettingsTarget = .microphone
+            default:
+                privacySettingsTarget = nil
+            }
+        } else {
+            privacySettingsTarget = nil
+        }
+        logger.error("Falha na captura de vídeo: \(message, privacy: .public)")
+        lastErrorMessage = message
     }
 }

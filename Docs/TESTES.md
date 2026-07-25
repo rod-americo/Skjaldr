@@ -74,13 +74,21 @@ O teste automatizado não substitui colagem em editores reais. Siga o roteiro de
 
 Também não substitui a validação manual de ScreenCaptureKit. Para vídeo:
 
+Instale e abra sempre a cópia assinada em `/Applications/Skjaldr.app`. A
+permissão de gravação de tela é vinculada à identidade de assinatura; não use
+uma cópia ad hoc nem execute o binário diretamente de `.build`.
+
 1. abrir e cancelar a seleção cinco vezes;
 2. gravar Portrait e Landscape por pelo menos dez segundos;
 3. repetir com os quatro modos de áudio;
 4. confirmar proporção, orientação e faixas no QuickTime;
 5. gravar por dez minutos com sistema + microfone e verificar sincronização;
 6. interromper uma gravação encerrando o aplicativo;
-7. negar tela e microfone e confirmar que nenhum temporário permanece.
+7. negar tela e microfone e confirmar que nenhum temporário permanece;
+8. confirmar que cada negação abre seu painel específico em Privacidade e
+   Segurança;
+9. recompilar, reinstalar e repetir uma gravação com microfone sem alterar as
+   permissões.
 
 Uma página local sem scripts nem rede está disponível em:
 

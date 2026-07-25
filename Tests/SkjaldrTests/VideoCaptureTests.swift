@@ -132,6 +132,22 @@ struct VideoCaptureTests {
         #expect(RecordingAudioMode.systemAndMicrophone.capturesMicrophone)
     }
 
+    @Test("Erros de privacidade abrem o painel correto")
+    func privacyErrorsUseSpecificSettingsPane() {
+        #expect(
+            VideoPrivacySettingsTarget.screenCapture.settingsURL?
+                .absoluteString.contains("Privacy_ScreenCapture") == true
+        )
+        #expect(
+            VideoPrivacySettingsTarget.microphone.settingsURL?
+                .absoluteString.contains("Privacy_Microphone") == true
+        )
+        #expect(
+            VideoPrivacySettingsTarget.screenCapture.buttonTitle
+                != VideoPrivacySettingsTarget.microphone.buttonTitle
+        )
+    }
+
     @Test("Nome de vídeo segue o padrão e evita sobrescrita")
     func recordingFileNameUsesReportPattern() throws {
         try withTemporaryDirectory { directory in
