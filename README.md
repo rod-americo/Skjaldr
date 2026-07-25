@@ -75,14 +75,19 @@ Implementado:
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./Scripts/compilar-app.sh
-./Scripts/instalar-app.sh
 ```
 
-O build assinado será criado em `dist/Skjaldr.app`; o instalador o copiará
-para:
+O script gera o build assinado em `dist/Skjaldr.app` e o instala
+automaticamente em:
 
 ```text
 /Applications/Skjaldr.app
+```
+
+Para reinstalar o último build sem recompilar:
+
+```bash
+./Scripts/instalar-app.sh
 ```
 
 Para abrir:

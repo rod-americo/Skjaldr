@@ -49,3 +49,5 @@ codesign --verify --deep --strict "${DESTINO_APP}"
 
 echo "Aplicação criada em: ${DESTINO_APP}"
 echo "Assinatura: ${IDENTIDADE_ASSINATURA}"
+
+"${RAIZ_PROJETO}/Scripts/instalar-app.sh"
