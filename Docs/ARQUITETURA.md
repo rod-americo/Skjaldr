@@ -15,9 +15,39 @@ ProjectStore ───── ScreenshotMonitor
       ├── CompositionRenderer ─ imagem raster final
       ├── ClipboardManager ─── PNG/TIFF/arquivo
       └── SessionPersistence ─ JSON + fontes locais
+
+VideoCaptureView
+      │
+      ▼
+VideoRecorderStore ── VideoRegionSelection
+      │
+      ├── ScreenCaptureRecorder ── ScreenCaptureKit
+      ├── VideoCapturePreferences ─ UserDefaults
+      └── GlobalHotKeyController ── ⌘⇧9
 ```
 
 ## Componentes
+
+### Captura de vídeo
+
+O gravador é independente do estado do compositor. `VideoRecorderStore`
+coordena a máquina de estados `idle → selecting → preparing → recording →
+finishing`, permissões, preferências e mensagens de interface.
+
+`VideoRegionSelectionController` apresenta uma janela transparente sobre cada
+tela. A região pode ser criada, movida e redimensionada, mas permanece em 6:13
+ou 13:6. As janelas são possuídas pelo controlador e não usam a autoliberação
+do AppKit.
+
+`ScreenCaptureRecorder` converte a região global em coordenadas lógicas da tela,
+exclui as janelas do próprio Skjaldr e configura `SCRecordingOutput` para MP4
+H.264. ScreenCaptureKit também incorpora áudio do sistema e microfone conforme
+o modo selecionado. O arquivo recebe nome temporário aleatório e só é movido
+para o nome final após o encerramento correto da gravação.
+
+`VideoCapturePreferences` persiste preset, modo de áudio, dispositivo, pasta de
+saída e última região normalizada por orientação. `GlobalHotKeyController`
+registra `⌘⇧9` pelo mecanismo nativo de hotkeys do macOS.
 
 ### Modelo do projeto
 
@@ -70,6 +100,10 @@ O estado é salvo atomicamente em JSON sob `~/Library/Application Support/Skjald
 
 A coordenação de interface e sessão ocorre no ator principal. A renderização de pré-visualização é adiada por uma tarefa cancelável para coalescer alterações rápidas. O desenho usa contextos bitmap independentes e não reutiliza a imagem reduzida para exportação.
 
+ScreenCaptureKit executa a captura fora da interface e notifica o controlador
+por delegates. As transições que alteram a UI retornam ao ator principal.
+Durante a finalização, novos inícios permanecem desabilitados.
+
 ## Falhas e recuperação
 
 - arquivos de entrada inválidos são ignorados e comunicados sem registrar caminhos;
@@ -77,3 +111,6 @@ A coordenação de interface e sessão ocorre no ator principal. A renderizaçã
 - fontes ausentes são removidas da sessão durante a abertura;
 - salvamento e cópia apresentam erro ao usuário sem diálogo em caso de sucesso;
 - a escrita de sessão e de exportação é atômica.
+- falha inesperada da captura encerra o stream e remove somente seu temporário;
+- encerrar o aplicativo durante uma gravação aguarda a finalização do MP4;
+- alteração ou remoção da tela selecionada encerra a sessão com erro visível.

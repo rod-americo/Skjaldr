@@ -34,7 +34,12 @@ Cobertura atual:
 - publicação de PNG e TIFF, sem URL no mesmo item;
 - arraste publicado como URL de arquivo, sem `public.png` concorrente;
 - reconstrução do pasteboard como `NSImage`;
-- recuperação da sessão JSON.
+- recuperação da sessão JSON;
+- proporções exatas e dimensões pares dos presets de vídeo;
+- seleção 6:13 e 13:6 nos quatro sentidos do arraste;
+- contenção e movimentação da região dentro da tela;
+- persistência normalizada da última região;
+- mapeamento dos quatro modos de áudio.
 
 ## Plano de imagens
 
@@ -66,6 +71,16 @@ As metas são para composições usuais de até vinte imagens. O teste deve info
 ## Compatibilidade manual
 
 O teste automatizado não substitui colagem em editores reais. Siga o roteiro de [PASTEBOARD.md](PASTEBOARD.md) e preencha [RESULTADOS-CLIPBOARD.md](RESULTADOS-CLIPBOARD.md).
+
+Também não substitui a validação manual de ScreenCaptureKit. Para vídeo:
+
+1. abrir e cancelar a seleção cinco vezes;
+2. gravar Portrait e Landscape por pelo menos dez segundos;
+3. repetir com os quatro modos de áudio;
+4. confirmar proporção, orientação e faixas no QuickTime;
+5. gravar por dez minutos com sistema + microfone e verificar sincronização;
+6. interromper uma gravação encerrando o aplicativo;
+7. negar tela e microfone e confirmar que nenhum temporário permanece.
 
 Uma página local sem scripts nem rede está disponível em:
 

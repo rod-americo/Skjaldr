@@ -16,7 +16,12 @@
 - não há indicador específico de ampliação de uma fonte pequena;
 - JPEG é disponível no salvamento pelo perfil compacto, mas a ação principal de clipboard publica PNG/TIFF;
 - compatibilidade com aplicativos de terceiros exige a matriz manual;
-- assinatura Developer ID e notarização não fazem parte do artefato local.
+- assinatura Developer ID e notarização não fazem parte do artefato local;
+- o vídeo oferece apenas as proporções 6:13 e 13:6;
+- resolução, codec e 30 fps são fixos;
+- não há preview, edição, webcam, GIF, zoom ou anotação de vídeo;
+- o atalho global de vídeo é fixo em `⌘⇧9`;
+- não há gravação isolada de uma janela.
 
 ## Próxima etapa: robustez clínica
 
@@ -52,7 +57,6 @@
 ### Entrada
 
 - extensão de compartilhamento do macOS;
-- captura integrada;
 - rasterização opcional de páginas PDF;
 - bookmarks de segurança para distribuição sandboxed;
 - regras conservadoras por aplicativo para recorte.
@@ -65,5 +69,15 @@
 - Developer ID;
 - notarização;
 - atualizações assinadas, sem telemetria.
+
+### Vídeo
+
+- atalho configurável;
+- contagem regressiva opcional;
+- gravação de janela;
+- presets e resoluções adicionais;
+- HEVC;
+- extração de quadros e GIF;
+- integração com o compositor de imagens.
 
 OCR, integração PACS, reconhecimento de modalidade, nuvem e contas permanecem fora do escopo até haver necessidade clínica, análise de risco e autorização explícita.

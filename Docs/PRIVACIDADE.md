@@ -9,6 +9,7 @@
 - nenhuma sincronização;
 - nenhum OCR externo;
 - nenhuma gravação de pixels em logs.
+- vídeo e áudio capturados somente após ação explícita do usuário.
 
 ## Dados persistidos
 
@@ -17,6 +18,9 @@ O Skjaldr mantém somente:
 - cópias locais das imagens da sessão;
 - estado JSON com dimensões, ordem, recorte, legendas, grupos e configurações;
 - PNGs temporários usados no pasteboard e no arraste.
+- preferências de vídeo: orientação, fonte de áudio, identificador do
+  microfone, pasta de saída e região normalizada;
+- MP4s gravados na pasta escolhida pelo usuário.
 
 O estado atual fica em `~/Library/Application Support/Skjaldr`. A versão MVP preserva a sessão até o usuário iniciar outra composição ou remover manualmente os dados da aplicação. Política de expiração configurável está no roadmap.
 
@@ -27,6 +31,21 @@ A saída é criada em um novo bitmap. A codificação não copia propriedades da
 ## Temporários
 
 O comando de copiar publica os dados diretamente, sem criar arquivo novo. O arraste usa um arquivo com identificador aleatório, eliminado pela limpeza de temporários após 24 horas. Nenhum temporário incorpora o nome da captura de origem.
+
+Uma gravação de vídeo usa um arquivo oculto com identificador aleatório na
+própria pasta de saída. Depois que ScreenCaptureKit finaliza o contêiner, o
+arquivo é movido para o nome definitivo. Cancelamento ou falha removem somente
+o temporário daquela gravação.
+
+## Permissões de captura
+
+A permissão de gravação de tela é solicitada ao iniciar a primeira captura. A
+permissão de microfone só é solicitada nos modos `Microfone` e `Sistema +
+microfone`. O Skjaldr não mantém essas permissões; elas são administradas pelo
+macOS em Privacidade e Segurança.
+
+O áudio do próprio Skjaldr é excluído da captura do sistema. Nenhuma imagem ou
+amostra de áudio é enviada a outro processo pelo aplicativo.
 
 ## Logs
 

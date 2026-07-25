@@ -1,6 +1,7 @@
 # Skjaldr
 
-Compositor nativo e local de capturas médicas para macOS.
+Ferramenta nativa e local para composição de imagens e gravação de tela no
+macOS.
 
 O Skjaldr transforma várias capturas em uma única imagem rasterizada, pronta para copiar e colar em editores de laudo HTML ou RTF. O fluxo principal é deliberadamente curto:
 
@@ -9,6 +10,13 @@ captura → captura → captura → ⌘C → cola no laudo
 ```
 
 Não há nuvem, conta, telemetria, OCR remoto nem etapa obrigatória de salvamento.
+
+O módulo de vídeo grava uma região com proporção de telefone, pronta para
+demonstrações e compartilhamento:
+
+```text
+⌘⇧9 → seleciona a região → Enter → grava → ⌘⇧9 → MP4 pronto
+```
 
 ## Por que “Skjaldr”?
 
@@ -47,11 +55,18 @@ Implementado:
 - recuperação local da sessão;
 - remoção de metadados identificáveis na nova codificação;
 - arraste da pré-visualização como arquivo PNG temporário, equivalente ao Finder;
-- testes automatizados de layout, renderização, pasteboard e persistência.
+- testes automatizados de layout, renderização, pasteboard e persistência;
+- captura de vídeo em `Phone Portrait` (6:13) e `Phone Landscape` (13:6);
+- seleção multitelas com proporção fixa e restauração da última região;
+- áudio do sistema, microfone, ambos ou nenhum;
+- exportação MP4 em H.264/AAC a 30 fps;
+- salvamento automático na pasta configurada;
+- início e parada pelo atalho global `⌘⇧9`;
+- finalização segura ao encerrar o aplicativo durante uma gravação.
 
 ## Requisitos
 
-- macOS 14 ou posterior;
+- macOS 26;
 - Xcode 26 ou Command Line Tools compatíveis;
 - nenhum pacote externo.
 
@@ -60,21 +75,36 @@ Implementado:
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ./Scripts/compilar-app.sh
+./Scripts/instalar-app.sh
 ```
 
-A aplicação será criada em:
+O build assinado será criado em `dist/Skjaldr.app`; o instalador o copiará
+para:
 
 ```text
-dist/Skjaldr.app
+/Applications/Skjaldr.app
 ```
 
 Para abrir:
 
 ```bash
-open dist/Skjaldr.app
+open /Applications/Skjaldr.app
 ```
 
-O pacote recebe uma assinatura ad hoc local. Distribuição para outras máquinas exige certificado Developer ID e notarização da Apple.
+Na primeira gravação, o macOS solicitará as permissões correspondentes de tela
+e microfone. O microfone só é solicitado quando fizer parte do modo de áudio.
+
+O pacote é assinado com a identidade Developer ID configurada no chaveiro e
+deve ser instalado em `/Applications` para que a identidade usada pelas
+permissões do macOS permaneça estável. Notarização só é necessária para
+distribuir o aplicativo a outras pessoas.
+
+Para usar outra identidade de assinatura:
+
+```bash
+SKJALDR_CODESIGN_IDENTITY="Developer ID Application: Nome (TEAMID)" \
+  ./Scripts/compilar-app.sh
+```
 
 ## Uso rápido
 
@@ -87,6 +117,18 @@ O pacote recebe uma assinatura ad hoc local. Distribuição para outras máquina
 7. Para uma legenda comum, use `⌘`-clique em duas a quatro miniaturas e escolha **Agrupar como linha**.
 8. Pressione `⌘C` ou arraste a pré-visualização como PNG.
 9. Cole ou solte no editor do laudo.
+
+Para gravar vídeo:
+
+1. Clique em **Gravar tela** ou abra **Captura > Configurar gravação**.
+2. Escolha `Phone Portrait` ou `Phone Landscape`.
+3. Escolha a fonte de áudio e a pasta de saída.
+4. Clique em **Selecionar região** e desenhe a moldura em qualquer monitor.
+5. Arraste dentro da região para reposicioná-la, se necessário, e pressione
+   `Enter`.
+6. Pressione `⌘⇧9` ou use **Parar** para finalizar.
+7. O MP4 será salvo automaticamente como
+   `yyyyMMdd_HHmm_video-laudo.mp4`, sem diálogo ou preview.
 
 Atalhos principais:
 
@@ -103,16 +145,23 @@ Atalhos principais:
 | `⌘G` | agrupar a seleção como uma linha |
 | `⌘⇧G` | desagrupar a linha selecionada |
 | `⌘1` / `⌘2` / `⌘3` | automático / comparação / grade |
+| `⌘⇧9` | iniciar seleção / cancelar seleção / parar gravação |
 
 ## Privacidade
 
-Todo o processamento ocorre localmente. O código não contém cliente HTTP, analytics ou integração com serviços externos. As fontes copiadas para a sessão ficam em:
+Todo o processamento ocorre localmente. O código não contém cliente HTTP,
+analytics ou integração com serviços externos. As fontes copiadas para a sessão
+ficam em:
 
 ```text
 ~/Library/Application Support/Skjaldr/
 ```
 
 A saída é recodificada e não herda EXIF, GPS, nomes, caminhos, comentários ou miniaturas das fontes. Logs da aplicação não registram nomes de arquivos nem conteúdo visual.
+
+Vídeos e áudio são capturados somente durante uma gravação iniciada pelo
+usuário. O arquivo temporário fica na própria pasta de saída e é renomeado
+apenas depois que o MP4 é finalizado.
 
 Consulte [PRIVACIDADE.md](Docs/PRIVACIDADE.md) para o modelo de ameaça e a lista de verificações.
 
@@ -137,6 +186,12 @@ Sources/SkjaldrApp/
 ├── SessionPersistence.swift
 ├── ProjectStore.swift
 ├── ContentView.swift
+├── VideoModels.swift
+├── VideoRegionSelection.swift
+├── ScreenCaptureRecorder.swift
+├── VideoRecorderStore.swift
+├── VideoCaptureView.swift
+├── GlobalHotKeyController.swift
 └── SkjaldrApp.swift
 ```
 

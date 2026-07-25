@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var store: ProjectStore
+    @EnvironmentObject private var videoStore: VideoRecorderStore
     @State private var isDropTarget = false
     @State private var previewScale: CGFloat = 0.82
 
@@ -21,7 +22,7 @@ struct ContentView: View {
         .frame(minWidth: 980, minHeight: 620)
         .toolbar { toolbar }
         .overlay(alignment: .top) {
-            if let message = store.toastMessage {
+            if let message = videoStore.toastMessage ?? store.toastMessage {
                 Text(message)
                     .font(.callout.weight(.medium))
                     .padding(.horizontal, 16)
@@ -30,6 +31,13 @@ struct ContentView: View {
                     .shadow(radius: 8, y: 3)
                     .padding(.top, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if videoStore.phase == .recording || videoStore.phase == .finishing {
+                recordingIndicator
+                    .padding(.top, 11)
+                    .padding(.trailing, 14)
             }
         }
         .alert(
@@ -41,7 +49,55 @@ struct ContentView: View {
             actions: { Button("OK") { store.lastErrorMessage = nil } },
             message: { Text(store.lastErrorMessage ?? "") }
         )
+        .alert(
+            "Não foi possível gravar",
+            isPresented: Binding(
+                get: { videoStore.lastErrorMessage != nil },
+                set: { if !$0 { videoStore.lastErrorMessage = nil } }
+            ),
+            actions: {
+                Button("Abrir Ajustes de Privacidade") {
+                    openPrivacySettings()
+                    videoStore.lastErrorMessage = nil
+                }
+                Button("OK") {
+                    videoStore.lastErrorMessage = nil
+                }
+            },
+            message: { Text(videoStore.lastErrorMessage ?? "") }
+        )
+        .sheet(isPresented: $videoStore.isConfigurationPresented) {
+            VideoCaptureView()
+                .environmentObject(videoStore)
+        }
+        .onAppear {
+            videoStore.startHotKeyMonitoring()
+        }
         .animation(.easeOut(duration: 0.18), value: store.toastMessage)
+    }
+
+    private var recordingIndicator: some View {
+        HStack(spacing: 9) {
+            Circle()
+                .fill(.red)
+                .frame(width: 9, height: 9)
+            Text(videoStore.phase == .finishing ? "Finalizando" : "REC")
+                .font(.caption.weight(.bold))
+            if videoStore.phase == .recording {
+                Text(videoStore.elapsedTimeLabel)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Button("Parar", action: videoStore.stopRecording)
+                    .controlSize(.small)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.regularMaterial, in: Capsule())
+        .shadow(radius: 8, y: 3)
     }
 
     private var thumbnailPanel: some View {
@@ -455,12 +511,25 @@ struct ContentView: View {
             .frame(width: 330)
         }
         ToolbarItemGroup {
+            Button(action: videoStore.showConfiguration) {
+                Label("Gravar tela", systemImage: "record.circle")
+            }
+            .disabled(videoStore.phase != .idle)
             Button(action: store.copyComposition) {
                 Label("Copiar composição", systemImage: "doc.on.doc")
             }
             .disabled(store.state.items.isEmpty)
             .keyboardShortcut("c", modifiers: .command)
         }
+    }
+
+    private func openPrivacySettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+        ) else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     private func icon(for mode: LayoutMode) -> String {

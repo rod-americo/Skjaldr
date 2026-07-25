@@ -24,8 +24,14 @@
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>O Skjaldr usa o microfone somente quando ele é escolhido para uma gravação local.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>O Skjaldr grava somente a região da tela escolhida pelo usuário e salva o vídeo localmente.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>O Skjaldr inclui o áudio do sistema somente quando essa fonte é escolhida para uma gravação local.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSPrincipalClass</key>

@@ -2,12 +2,24 @@ import SwiftUI
 
 @main
 struct SkjaldrApp: App {
-    @StateObject private var store = ProjectStore()
+    @NSApplicationDelegateAdaptor(SkjaldrApplicationDelegate.self)
+    private var appDelegate
+    @StateObject private var store: ProjectStore
+    @StateObject private var videoStore: VideoRecorderStore
+
+    init() {
+        let store = ProjectStore()
+        let videoStore = VideoRecorderStore()
+        _store = StateObject(wrappedValue: store)
+        _videoStore = StateObject(wrappedValue: videoStore)
+        appDelegate.videoStore = videoStore
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
+                .environmentObject(videoStore)
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 1240, height: 780)
@@ -70,17 +82,71 @@ struct SkjaldrApp: App {
                     store.toggleMonitoring()
                 }
             }
+
+            CommandMenu("Captura") {
+                Button("Configurar gravação…") {
+                    videoStore.showConfiguration()
+                }
+                .disabled(videoStore.phase != .idle)
+
+                Divider()
+
+                Button(recordingCommandTitle) {
+                    videoStore.handleRecordingShortcut()
+                }
+                .keyboardShortcut("9", modifiers: [.command, .shift])
+                .disabled(
+                    videoStore.phase == .preparing ||
+                    videoStore.phase == .finishing
+                )
+
+                if videoStore.lastRecordingURL != nil {
+                    Divider()
+                    Button("Mostrar último vídeo no Finder") {
+                        videoStore.revealLastRecording()
+                    }
+                }
+            }
         }
 
         Settings {
             SettingsView()
                 .environmentObject(store)
+                .environmentObject(videoStore)
         }
+    }
+
+    private var recordingCommandTitle: String {
+        switch videoStore.phase {
+        case .idle: "Iniciar gravação"
+        case .selecting: "Cancelar seleção"
+        case .recording: "Parar gravação"
+        case .preparing: "Preparando gravação"
+        case .finishing: "Finalizando gravação"
+        }
+    }
+}
+
+@MainActor
+private final class SkjaldrApplicationDelegate: NSObject, NSApplicationDelegate {
+    weak var videoStore: VideoRecorderStore?
+
+    func applicationShouldTerminate(
+        _ sender: NSApplication
+    ) -> NSApplication.TerminateReply {
+        guard let videoStore, videoStore.phase != .idle else {
+            return .terminateNow
+        }
+        videoStore.prepareForApplicationTermination {
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }
 
 private struct SettingsView: View {
     @EnvironmentObject private var store: ProjectStore
+    @EnvironmentObject private var videoStore: VideoRecorderStore
 
     var body: some View {
         Form {
@@ -99,8 +165,16 @@ private struct SettingsView: View {
                 )
                 Button("Escolher pasta…", action: store.chooseMonitoringFolder)
             }
+            Section("Vídeo") {
+                LabeledContent("Pasta de saída") {
+                    Text(videoStore.outputDirectory.lastPathComponent)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Button("Escolher pasta de vídeos…", action: videoStore.chooseOutputDirectory)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 270)
+        .frame(width: 480, height: 360)
     }
 }
