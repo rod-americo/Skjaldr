@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ensaio local do clipboard — Skjaldr</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { max-width: 900px; margin: 48px auto; padding: 0 24px; }
+    #editor {
+      min-height: 360px;
+      padding: 24px;
+      border: 2px dashed #888;
+      border-radius: 12px;
+      background: Canvas;
+    }
+    #editor img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <h1>Ensaio local do clipboard</h1>
+  <p>Copie a composição no Skjaldr, clique na área abaixo e pressione ⌘V.</p>
+  <div id="editor" contenteditable="true" aria-label="Editor HTML de teste">
+    Cole a imagem aqui.
+  </div>
+</body>
+</html>
