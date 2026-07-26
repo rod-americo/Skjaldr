@@ -93,4 +93,37 @@ struct VideoUploadTests {
             try await VideoUploadPreparation.prepare(file)
         }
     }
+
+    @MainActor
+    @Test("Fila não inicia trabalho enquanto a gravação está ativa")
+    func queueStaysIdleDuringRecording() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "SkjaldrUploadSuspension-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let queueURL = directory.appendingPathComponent("queue.json")
+        let videoURL = directory.appendingPathComponent("video.mp4")
+        try Data("arquivo de teste".utf8).write(to: videoURL)
+        let store = VideoUploadStore(queueURL: queueURL)
+
+        store.suspendForVideoRecording()
+        store.enqueue(videoURL)
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(store.phase == .idle)
+        let data = try Data(contentsOf: queueURL)
+        let jobs = try JSONDecoder().decode(
+            [PendingVideoUpload].self,
+            from: data
+        )
+        #expect(jobs.count == 1)
+        #expect(jobs[0].fileURL == videoURL)
+    }
 }

@@ -25,9 +25,12 @@ final class VideoUploadStore: ObservableObject {
     )
     private var queue: [PendingVideoUpload] = []
     private var workerTask: Task<Void, Never>?
+    private var activeUploader: VideoFileUploader?
+    private var isSuspendedForRecording = false
+    private var shouldResumeWorker = false
     private let queueURL: URL
 
-    init() {
+    init(queueURL customQueueURL: URL? = nil) {
         deleteLocalAfterUpload = UserDefaults.standard.bool(
             forKey: "video.upload.deleteLocal"
         )
@@ -35,7 +38,8 @@ final class VideoUploadStore: ObservableObject {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         )[0].appendingPathComponent("Skjaldr")
-        queueURL = directory.appendingPathComponent("video-upload-queue.json")
+        queueURL = customQueueURL
+            ?? directory.appendingPathComponent("video-upload-queue.json")
         if let data = try? Data(contentsOf: queueURL),
            let saved = try? JSONDecoder().decode(
                [PendingVideoUpload].self,
@@ -46,9 +50,7 @@ final class VideoUploadStore: ObservableObject {
                 FileManager.default.fileExists(atPath: $0.filePath)
             }
         }
-        if !queue.isEmpty {
-            workerTask = Task { [weak self] in await self?.processQueue() }
-        }
+        startWorkerIfNeeded()
     }
 
     func enqueue(_ fileURL: URL) {
@@ -57,9 +59,7 @@ final class VideoUploadStore: ObservableObject {
         }
         queue.append(PendingVideoUpload(fileURL: fileURL))
         persistQueue()
-        if workerTask == nil {
-            workerTask = Task { [weak self] in await self?.processQueue() }
-        }
+        startWorkerIfNeeded()
     }
 
     func retry() {
@@ -67,8 +67,27 @@ final class VideoUploadStore: ObservableObject {
         queue[0].attempts = 0
         persistQueue()
         errorMessage = nil
+        if let workerTask {
+            shouldResumeWorker = true
+            workerTask.cancel()
+        } else {
+            startWorkerIfNeeded()
+        }
+    }
+
+    func suspendForVideoRecording() {
+        guard !isSuspendedForRecording else { return }
+        isSuspendedForRecording = true
+        shouldResumeWorker = !queue.isEmpty
         workerTask?.cancel()
-        workerTask = Task { [weak self] in await self?.processQueue() }
+        activeUploader?.cancel()
+    }
+
+    func resumeAfterVideoRecording() {
+        guard isSuspendedForRecording else { return }
+        isSuspendedForRecording = false
+        shouldResumeWorker = !queue.isEmpty
+        startWorkerIfNeeded()
     }
 
     func copyLink() {
@@ -90,8 +109,17 @@ final class VideoUploadStore: ObservableObject {
     }
 
     private func processQueue() async {
-        defer { workerTask = nil }
-        while !queue.isEmpty, !Task.isCancelled {
+        defer {
+            workerTask = nil
+            if shouldResumeWorker, !isSuspendedForRecording, !queue.isEmpty {
+                shouldResumeWorker = false
+                startWorkerIfNeeded()
+            }
+        }
+        while !queue.isEmpty,
+              !Task.isCancelled,
+              !isSuspendedForRecording
+        {
             do {
                 try await uploadFirst()
                 let completed = queue.removeFirst()
@@ -100,6 +128,14 @@ final class VideoUploadStore: ObservableObject {
                     try? FileManager.default.removeItem(at: completed.fileURL)
                 }
             } catch {
+                if isSuspendedForRecording ||
+                    Task.isCancelled ||
+                    (error as? URLError)?.code == .cancelled
+                {
+                    phase = .idle
+                    shouldResumeWorker = !queue.isEmpty
+                    return
+                }
                 let message = (error as? LocalizedError)?.errorDescription
                     ?? error.localizedDescription
                 errorMessage = message
@@ -155,6 +191,8 @@ final class VideoUploadStore: ObservableObject {
                 }
                 phase = .uploading
                 let uploader = VideoFileUploader()
+                activeUploader = uploader
+                defer { activeUploader = nil }
                 try await uploader.upload(
                     fileURL: prepared.fileURL,
                     uploadURL: uploadURL,
@@ -201,6 +239,19 @@ final class VideoUploadStore: ObservableObject {
             try data.write(to: queueURL, options: .atomic)
         } catch {
             logger.error("Não foi possível persistir a fila de upload")
+        }
+    }
+
+    private func startWorkerIfNeeded() {
+        guard workerTask == nil,
+              !isSuspendedForRecording,
+              !queue.isEmpty
+        else {
+            return
+        }
+        shouldResumeWorker = false
+        workerTask = Task { [weak self] in
+            await self?.processQueue()
         }
     }
 }

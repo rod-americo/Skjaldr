@@ -8,6 +8,7 @@ import OSLog
 @MainActor
 final class VideoRecorderStore: ObservableObject {
     var onRecordingSaved: ((URL) -> Void)?
+    var onCaptureActivityChanged: ((Bool) -> Void)?
     @Published var preset: PhoneVideoPreset {
         didSet { preferences.preset = preset }
     }
@@ -44,6 +45,8 @@ final class VideoRecorderStore: ObservableObject {
     private var terminationCompletion: (() -> Void)?
     private var isHotKeyRegistered = false
     private var isCancelHotKeyRegistered = false
+    private var isCaptureActivityActive = false
+    private var hasCheckedTemporaryRecordings = false
     private lazy var hotKey = GlobalHotKeyController(
         id: 1,
         modifiers: GlobalHotKeyController.commandShiftModifiers
@@ -103,6 +106,7 @@ final class VideoRecorderStore: ObservableObject {
         if !isCancelHotKeyRegistered {
             showToast("⌥⌘⇧9 indisponível; use Cancelar durante a gravação")
         }
+        recoverTemporaryRecordingsIfNeeded()
     }
 
     func showConfiguration() {
@@ -132,6 +136,7 @@ final class VideoRecorderStore: ObservableObject {
 
     func beginCapture() {
         guard phase == .idle else { return }
+        setCaptureActivity(true)
         operationTask?.cancel()
         isConfigurationPresented = false
         operationTask = Task { @MainActor [weak self] in
@@ -354,7 +359,7 @@ final class VideoRecorderStore: ObservableObject {
             while !Task.isCancelled {
                 guard let self, self.phase == .recording else { return }
                 self.elapsedTime = self.recorder.recordedDuration
-                try? await Task.sleep(for: .milliseconds(250))
+                try? await Task.sleep(for: .seconds(1))
             }
         }
     }
@@ -365,9 +370,34 @@ final class VideoRecorderStore: ObservableObject {
         durationTask = nil
         elapsedTime = 0
         phase = .idle
+        setCaptureActivity(false)
         let completion = terminationCompletion
         terminationCompletion = nil
         completion?()
+    }
+
+    private func setCaptureActivity(_ active: Bool) {
+        guard active != isCaptureActivityActive else { return }
+        isCaptureActivityActive = active
+        onCaptureActivityChanged?(active)
+    }
+
+    private func recoverTemporaryRecordingsIfNeeded() {
+        guard !hasCheckedTemporaryRecordings else { return }
+        hasCheckedTemporaryRecordings = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let recovered = await ScreenCaptureRecorder
+                .recoverTemporaryRecordings(in: self.outputDirectory)
+            guard !recovered.isEmpty else { return }
+            self.lastRecordingURL = recovered.last
+            let count = recovered.count
+            self.showToast(
+                count == 1
+                    ? "Uma gravação foi recuperada localmente"
+                    : "\(count) gravações foram recuperadas localmente"
+            )
+        }
     }
 
     private func handleUnexpectedFailure(_ error: Error) {

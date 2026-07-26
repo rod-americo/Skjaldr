@@ -388,6 +388,44 @@ struct RendererClipboardTests {
         #expect(store.state.items.count == 1)
     }
 
+    @MainActor
+    @Test("Gravação suspende e restaura o monitor de imagens")
+    func recordingSuspendsImageMonitoring() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "SkjaldrMonitorSuspension-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let watchedDirectory = directory.appendingPathComponent(
+            "Capturas",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: watchedDirectory,
+            withIntermediateDirectories: true
+        )
+        let store = ProjectStore(
+            persistence: SessionPersistence(
+                rootDirectory: directory.appendingPathComponent("Sessao")
+            ),
+            restoreMonitorPreference: false
+        )
+        defer {
+            store.stopMonitoring()
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        store.startMonitoring(watchedDirectory)
+        #expect(store.monitor.isRunning)
+
+        store.suspendForVideoRecording()
+        #expect(!store.monitor.isRunning)
+
+        store.resumeAfterVideoRecording()
+        #expect(store.monitor.isRunning)
+        #expect(store.monitor.directory == watchedDirectory)
+    }
+
     private func withTemporaryDirectory(_ operation: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("SkjaldrTests-\(UUID().uuidString)", isDirectory: true)

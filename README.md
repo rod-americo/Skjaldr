@@ -59,6 +59,7 @@ Implementado:
 - arraste da pré-visualização como arquivo PNG temporário, equivalente ao Finder;
 - testes automatizados de layout, renderização, pasteboard e persistência;
 - captura de vídeo em `Phone Portrait` (6:13) e `Phone Landscape` (13:6);
+- controle permanente pela barra de menus, sem trazer o compositor à frente;
 - seleção multitelas com proporção fixa e restauração da última região;
 - moldura persistente, passiva e excluída do vídeo durante a gravação;
 - áudio do sistema, microfone, ambos ou nenhum;
@@ -66,6 +67,8 @@ Implementado:
 - salvamento automático na pasta configurada;
 - início e parada pelo atalho global `⌘⇧9`;
 - cancelamento sem salvar nem enviar pelo atalho global `⌥⌘⇧9`;
+- suspensão do monitor de imagens e da fila de upload durante a captura;
+- recuperação de MP4 temporário e timeout de finalização;
 - finalização segura ao encerrar o aplicativo durante uma gravação.
 - upload assíncrono para Cloudflare R2 depois do salvamento local;
 - URL curta `https://odin.med.br/123-456`, copiada automaticamente;

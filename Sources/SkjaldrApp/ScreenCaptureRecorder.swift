@@ -12,6 +12,7 @@ final class ScreenCaptureRecorder: NSObject {
     private var recordingOutput: SCRecordingOutput?
     private var startContinuation: CheckedContinuation<Void, Error>?
     private var finishContinuation: CheckedContinuation<Void, Error>?
+    private var finishWatchdogTask: Task<Void, Never>?
     private var temporaryURL: URL?
     private var destinationURL: URL?
     private var didStart = false
@@ -74,7 +75,7 @@ final class ScreenCaptureRecorder: NSObject {
         configuration.width = Int(preset.outputSize.width)
         configuration.height = Int(preset.outputSize.height)
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: 30)
-        configuration.queueDepth = 5
+        configuration.queueDepth = 3
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.scalesToFit = true
         configuration.preservesAspectRatio = true
@@ -151,6 +152,7 @@ final class ScreenCaptureRecorder: NSObject {
         do {
             try await withCheckedThrowingContinuation { continuation in
                 finishContinuation = continuation
+                startFinishWatchdog()
                 Task { @MainActor [weak self] in
                     guard let self, self.stream != nil else {
                         self?.resumeFinish(
@@ -183,7 +185,7 @@ final class ScreenCaptureRecorder: NSObject {
             reset()
             return destinationURL
         } catch {
-            await discardCurrentRecording()
+            preserveCurrentRecording()
             throw error
         }
     }
@@ -209,6 +211,8 @@ final class ScreenCaptureRecorder: NSObject {
     }
 
     private func reset() {
+        finishWatchdogTask?.cancel()
+        finishWatchdogTask = nil
         stream = nil
         recordingOutput = nil
         temporaryURL = nil
@@ -231,12 +235,46 @@ final class ScreenCaptureRecorder: NSObject {
 
     private func resumeFinish(throwing error: Error? = nil) {
         guard let continuation = finishContinuation else { return }
+        finishWatchdogTask?.cancel()
+        finishWatchdogTask = nil
         finishContinuation = nil
         if let error {
             continuation.resume(throwing: error)
         } else {
             continuation.resume()
         }
+    }
+
+    private func startFinishWatchdog() {
+        finishWatchdogTask?.cancel()
+        finishWatchdogTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled, let self,
+                  self.finishContinuation != nil
+            else {
+                return
+            }
+            if let temporaryURL = self.temporaryURL,
+               await Self.isPlayableRecording(temporaryURL)
+            {
+                self.resumeFinish()
+            } else {
+                self.resumeFinish(
+                    throwing: VideoRecordingError.recordingFailed(
+                        """
+                        a finalização excedeu o limite; o arquivo temporário \
+                        foi preservado para recuperação
+                        """
+                    )
+                )
+            }
+        }
+    }
+
+    private func preserveCurrentRecording() {
+        resumeStart(throwing: VideoRecordingError.recordingDidNotStart)
+        finishContinuation = nil
+        reset()
     }
 
     private func handleFailure(_ error: Error) {
@@ -269,6 +307,62 @@ final class ScreenCaptureRecorder: NSObject {
             )
         }
         return candidate
+    }
+
+    nonisolated static func recoverTemporaryRecordings(
+        in directory: URL
+    ) async -> [URL] {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [
+                .isRegularFileKey,
+                .contentModificationDateKey
+            ],
+            options: [.skipsPackageDescendants]
+        ) else {
+            return []
+        }
+
+        var recovered: [URL] = []
+        for file in files where
+            file.lastPathComponent.hasPrefix(".skjaldr-") &&
+            file.pathExtension.lowercased() == "mp4"
+        {
+            guard await isPlayableRecording(file) else { continue }
+            let values = try? file.resourceValues(
+                forKeys: [.contentModificationDateKey]
+            )
+            let destination = availableDestination(
+                in: directory,
+                date: values?.contentModificationDate ?? Date()
+            )
+            do {
+                try FileManager.default.moveItem(
+                    at: file,
+                    to: destination
+                )
+                recovered.append(destination)
+            } catch {
+                continue
+            }
+        }
+        return recovered
+    }
+
+    nonisolated static func isPlayableRecording(_ url: URL) async -> Bool {
+        guard let size = try? url.resourceValues(
+            forKeys: [.fileSizeKey]
+        ).fileSize, size > 0 else {
+            return false
+        }
+        let asset = AVURLAsset(url: url)
+        do {
+            let playable = try await asset.load(.isPlayable)
+            let duration = try await asset.load(.duration).seconds
+            return playable && duration.isFinite && duration > 0
+        } catch {
+            return false
+        }
     }
 }
 

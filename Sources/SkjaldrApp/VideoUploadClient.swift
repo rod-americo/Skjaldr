@@ -11,7 +11,8 @@ struct PreparedVideo {
 
 enum VideoUploadPreparation {
     static func prepare(_ url: URL) async throws -> PreparedVideo {
-        try await Task.detached(priority: .userInitiated) {
+        let task = Task.detached(priority: .utility) {
+            try Task.checkCancellation()
             let attributes = try FileManager.default.attributesOfItem(
                 atPath: url.path
             )
@@ -37,6 +38,7 @@ enum VideoUploadPreparation {
             while let data = try handle.read(upToCount: 1_048_576),
                   !data.isEmpty
             {
+                try Task.checkCancellation()
                 hasher.update(data: data)
             }
             let digest = hasher.finalize()
@@ -48,7 +50,12 @@ enum VideoUploadPreparation {
                 durationSeconds: duration,
                 sha256: digest
             )
-        }.value
+        }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 }
 
@@ -124,6 +131,7 @@ final class VideoFileUploader: NSObject,
     private var responseData = Data()
     private var progress: (@Sendable (Int64, Int64) -> Void)?
     private var session: URLSession?
+    private var uploadTask: URLSessionUploadTask?
 
     func upload(
         fileURL: URL,
@@ -147,8 +155,17 @@ final class VideoFileUploader: NSObject,
                 delegateQueue: nil
             )
             self.session = session
-            session.uploadTask(with: request, fromFile: fileURL).resume()
+            let uploadTask = session.uploadTask(
+                with: request,
+                fromFile: fileURL
+            )
+            self.uploadTask = uploadTask
+            uploadTask.resume()
         }
+    }
+
+    func cancel() {
+        uploadTask?.cancel()
     }
 
     func urlSession(
@@ -177,6 +194,7 @@ final class VideoFileUploader: NSObject,
         defer {
             self.session?.finishTasksAndInvalidate()
             self.session = nil
+            self.uploadTask = nil
             self.progress = nil
             responseData.removeAll()
         }

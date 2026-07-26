@@ -350,6 +350,14 @@ O MVP estará pronto quando:
     de comportamento;
 14. recompilar e reinstalar o app não exigir nova autorização de tela ou
     microfone.
+15. iniciar uma gravação global não ativar nem trazer o compositor de imagens
+    à frente;
+16. a barra de menus permanecer disponível para iniciar, parar, cancelar e
+    acompanhar gravações e uploads;
+17. monitoramento de pasta, renderização de preview e upload ficarem suspensos
+    durante toda a operação de captura;
+18. a finalização nunca aguardar indefinidamente e preservar para recuperação
+    qualquer MP4 temporário válido.
 
 ## Estratégia de implementação
 

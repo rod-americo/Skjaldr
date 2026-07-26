@@ -23,6 +23,8 @@ final class ProjectStore: ObservableObject {
     private var redoStates: [CompositionState] = []
     private var toastTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
+    private var suspendedMonitoringDirectory: URL?
+    private var isSuspendedForRecording = false
 
     init(
         persistence: SessionPersistence = .live(),
@@ -449,6 +451,29 @@ final class ProjectStore: ObservableObject {
     func stopMonitoring() {
         monitor.stop()
         UserDefaults.standard.set(false, forKey: "monitoramentoAtivo")
+    }
+
+    func suspendForVideoRecording() {
+        guard !isSuspendedForRecording else { return }
+        isSuspendedForRecording = true
+        previewTask?.cancel()
+        previewTask = nil
+        if monitor.isRunning {
+            suspendedMonitoringDirectory = monitor.directory
+            monitor.stop()
+        }
+    }
+
+    func resumeAfterVideoRecording() {
+        guard isSuspendedForRecording else { return }
+        isSuspendedForRecording = false
+        if let directory = suspendedMonitoringDirectory,
+           UserDefaults.standard.bool(forKey: "monitoramentoAtivo")
+        {
+            startMonitoring(directory)
+        }
+        suspendedMonitoringDirectory = nil
+        refreshPreview()
     }
 
     private func commit(_ next: CompositionState) {

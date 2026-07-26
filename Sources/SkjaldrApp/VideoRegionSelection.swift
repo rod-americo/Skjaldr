@@ -38,7 +38,7 @@ final class VideoRegionSelectionController {
         for screen in screens {
             let window = SelectionOverlayWindow(
                 contentRect: screen.frame,
-                styleMask: .borderless,
+                styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
             )
@@ -82,8 +82,7 @@ final class VideoRegionSelectionController {
         let preferredWindow = windows.first {
             $0.screen?.frame.contains(mouseLocation) == true
         } ?? windows.first
-        preferredWindow?.makeKey()
-        NSApp.activate(ignoringOtherApps: true)
+        preferredWindow?.makeKeyAndOrderFront(nil)
 
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             switch event.keyCode {
@@ -156,7 +155,7 @@ final class VideoRegionSelectionController {
     }
 }
 
-private final class SelectionOverlayWindow: NSWindow {
+private final class SelectionOverlayWindow: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }

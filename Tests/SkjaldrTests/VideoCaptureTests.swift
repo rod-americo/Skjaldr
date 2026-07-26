@@ -1,4 +1,6 @@
+import AVFoundation
 import CoreGraphics
+import CoreVideo
 import Foundation
 import Testing
 @testable import SkjaldrApp
@@ -191,6 +193,39 @@ struct VideoCaptureTests {
         }
     }
 
+    @Test("Recuperação promove somente MP4 temporário reproduzível")
+    func temporaryRecordingRecovery() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "SkjaldrRecoveryTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let valid = directory.appendingPathComponent(
+            ".skjaldr-valid.mp4"
+        )
+        let invalid = directory.appendingPathComponent(
+            ".skjaldr-invalid.mp4"
+        )
+        try await makeSyntheticVideo(at: valid)
+        try Data("incompleto".utf8).write(to: invalid)
+
+        let recovered = await ScreenCaptureRecorder
+            .recoverTemporaryRecordings(in: directory)
+
+        #expect(recovered.count == 1)
+        #expect(!FileManager.default.fileExists(atPath: valid.path))
+        #expect(FileManager.default.fileExists(atPath: invalid.path))
+        let output = try #require(recovered.first)
+        #expect(output.lastPathComponent.contains("_video-laudo"))
+        #expect(await ScreenCaptureRecorder.isPlayableRecording(output))
+    }
+
     private func withTemporaryDirectory(
         _ operation: (URL) throws -> Void
     ) throws {
@@ -205,5 +240,49 @@ struct VideoCaptureTests {
         )
         defer { try? FileManager.default.removeItem(at: directory) }
         try operation(directory)
+    }
+
+    private func makeSyntheticVideo(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        let input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: 64,
+                AVVideoHeightKey: 64
+            ]
+        )
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: 64,
+                kCVPixelBufferHeightKey as String: 64
+            ]
+        )
+        #expect(writer.canAdd(input))
+        writer.add(input)
+        #expect(writer.startWriting())
+        writer.startSession(atSourceTime: .zero)
+
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(
+            nil,
+            try #require(adaptor.pixelBufferPool),
+            &pixelBuffer
+        )
+        #expect(status == kCVReturnSuccess)
+        let buffer = try #require(pixelBuffer)
+        #expect(adaptor.append(buffer, withPresentationTime: .zero))
+        #expect(
+            adaptor.append(
+                buffer,
+                withPresentationTime: CMTime(value: 1, timescale: 30)
+            )
+        )
+        input.markAsFinished()
+        await writer.finishWriting()
+        #expect(writer.status == .completed)
     }
 }

@@ -15,14 +15,27 @@ struct SkjaldrApp: App {
         videoStore.onRecordingSaved = { [weak uploadStore] url in
             uploadStore?.enqueue(url)
         }
+        videoStore.onCaptureActivityChanged = {
+            [weak store, weak uploadStore] active in
+            if active {
+                store?.suspendForVideoRecording()
+                uploadStore?.suspendForVideoRecording()
+            } else {
+                store?.resumeAfterVideoRecording()
+                uploadStore?.resumeAfterVideoRecording()
+            }
+        }
         _store = StateObject(wrappedValue: store)
         _videoStore = StateObject(wrappedValue: videoStore)
         _uploadStore = StateObject(wrappedValue: uploadStore)
         appDelegate.videoStore = videoStore
+        Task { @MainActor in
+            videoStore.startHotKeyMonitoring()
+        }
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Skjaldr", id: "composer") {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(videoStore)
@@ -124,6 +137,24 @@ struct SkjaldrApp: App {
             }
         }
 
+        MenuBarExtra {
+            MenuBarView()
+                .environmentObject(videoStore)
+                .environmentObject(uploadStore)
+        } label: {
+            Group {
+                if videoStore.phase == .recording {
+                    Image(systemName: "record.circle.fill")
+                } else if videoStore.phase == .finishing {
+                    Image(systemName: "hourglass.circle")
+                } else {
+                    Image("MenuBarIcon")
+                }
+            }
+            .accessibilityLabel("Skjaldr")
+        }
+        .menuBarExtraStyle(.menu)
+
         Settings {
             SettingsView()
                 .environmentObject(store)
@@ -147,6 +178,10 @@ struct SkjaldrApp: App {
 private final class SkjaldrApplicationDelegate: NSObject, NSApplicationDelegate {
     weak var videoStore: VideoRecorderStore?
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        videoStore?.startHotKeyMonitoring()
+    }
+
     func applicationShouldTerminate(
         _ sender: NSApplication
     ) -> NSApplication.TerminateReply {
@@ -168,8 +203,13 @@ private struct SettingsView: View {
     var body: some View {
         Form {
             Section("Privacidade") {
-                Label("Processamento integralmente local", systemImage: "lock.shield")
-                Text("O Skjaldr não contém clientes de rede, telemetria ou serviços externos.")
+                Label("Composição de imagens local", systemImage: "lock.shield")
+                Text(
+                    """
+                    Imagens permanecem no Mac. Vídeos são mantidos localmente \
+                    e enviados somente pelo fluxo configurado do Skjaldr.
+                    """
+                )
                     .foregroundStyle(.secondary)
             }
             Section("Capturas") {
