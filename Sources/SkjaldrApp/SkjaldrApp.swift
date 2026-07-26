@@ -127,7 +127,7 @@ private final class SkjaldrApplicationDelegate: NSObject, NSApplicationDelegate 
         if !flag {
             workspace?.showExistingTabOrRequestNew()
         }
-        return true
+        return false
     }
 
     func applicationShouldTerminate(
