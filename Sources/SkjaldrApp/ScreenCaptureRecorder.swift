@@ -75,7 +75,7 @@ final class ScreenCaptureRecorder: NSObject {
         configuration.width = Int(preset.outputSize.width)
         configuration.height = Int(preset.outputSize.height)
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: 30)
-        configuration.queueDepth = 3
+        configuration.queueDepth = 5
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.scalesToFit = true
         configuration.preservesAspectRatio = true
@@ -329,9 +329,7 @@ final class ScreenCaptureRecorder: NSObject {
         }
 
         var recovered: [URL] = []
-        for file in files where
-            file.lastPathComponent.hasPrefix(".skjaldr-") &&
-            file.pathExtension.lowercased() == "mp4"
+        for file in files where isCaptureTemporaryFile(file)
         {
             guard await isPlayableRecording(file) else { continue }
             let values = try? file.resourceValues(
@@ -352,6 +350,16 @@ final class ScreenCaptureRecorder: NSObject {
             }
         }
         return recovered
+    }
+
+    nonisolated static func isCaptureTemporaryFile(_ url: URL) -> Bool {
+        guard url.pathExtension.lowercased() == "mp4" else {
+            return false
+        }
+        let stem = url.deletingPathExtension().lastPathComponent
+        let prefix = ".skjaldr-"
+        guard stem.hasPrefix(prefix) else { return false }
+        return UUID(uuidString: String(stem.dropFirst(prefix.count))) != nil
     }
 
     nonisolated static func isPlayableRecording(_ url: URL) async -> Bool {

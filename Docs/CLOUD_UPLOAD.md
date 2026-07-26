@@ -115,11 +115,19 @@ idempotency key e é retomada na próxima abertura. O botão **Tentar novamente*
 reutiliza registro, código e objeto. Registros pendentes por mais de 24 horas
 são marcados como falhos pelo Cron.
 
-Antes de criar o recurso remoto, o aplicativo gera em Application Support um
-derivado temporário H.264 com bitrate-alvo de 6 Mb/s e otimização para início
-progressivo. O MP4 original permanece na pasta escolhida e nunca é substituído.
-Retries reutilizam o mesmo derivado e a mesma chave de idempotência. Depois da
-confirmação do upload, somente o derivado temporário é removido.
+Antes de criar o recurso remoto, o aplicativo gera ao lado do arquivo local um
+derivado oculto H.264 com bitrate-alvo de 3 Mb/s e otimização para início
+progressivo. Retries reutilizam o mesmo derivado e a mesma chave de
+idempotência. O MP4 bruto permanece recuperável enquanto o upload não for
+confirmado. Depois da confirmação, o derivado substitui o bruto no mesmo
+caminho; se essa substituição falhar, o bruto é preservado.
+
+Antes de substituir ou remover qualquer arquivo, a fila persiste a URL pública
+confirmada e compara tamanho e data de modificação do MP4 com a identidade
+registrada no enfileiramento. Assim, um encerramento entre a confirmação e a
+promoção local é retomado sem novo upload, e um arquivo trocado externamente
+nunca é sobrescrito. A recuperação de capturas reconhece somente temporários
+`.skjaldr-<uuid>.mp4`; derivados e backups não são promovidos como gravações.
 
 Para observar:
 

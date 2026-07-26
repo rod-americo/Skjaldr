@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 @preconcurrency import UserNotifications
 
 @MainActor
@@ -7,36 +8,96 @@ final class VideoCompletionNotificationController:
     UNUserNotificationCenterDelegate
 {
     private let center = UNUserNotificationCenter.current()
+    private let fallback: (URL) -> Void
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "io.skjaldr.app",
+        category: "VideoNotification"
+    )
 
-    override init() {
+    init(fallback: @escaping (URL) -> Void) {
+        self.fallback = fallback
         super.init()
         center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    func presentIfApplicationIsInBackground(url: URL) {
-        if NSApp.isActive,
-           let keyWindow = NSApp.keyWindow,
-           keyWindow.isVisible,
-           !(keyWindow is NSPanel)
-        {
-            return
+    func present(url: URL) {
+        center.getNotificationSettings { [weak self] settings in
+            Task { @MainActor [weak self] in
+                self?.deliver(url: url, settings: settings)
+            }
         }
+    }
 
+    private func deliver(url: URL, settings: UNNotificationSettings) {
+        switch settings.authorizationStatus {
+        case .notDetermined:
+            center.requestAuthorization(
+                options: [.alert, .sound]
+            ) { [weak self] granted, error in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if granted {
+                        self.schedule(url: url)
+                    } else {
+                        self.logger.error(
+                            """
+                            Notificação não autorizada: \
+                            \(error?.localizedDescription ?? "negada", privacy: .public)
+                            """
+                        )
+                        self.fallback(url)
+                    }
+                }
+            }
+        case .authorized, .provisional, .ephemeral:
+            guard settings.alertSetting == .enabled,
+                  settings.alertStyle != .none
+            else {
+                logger.notice(
+                    "Alertas do Skjaldr estão desativados; usando fallback"
+                )
+                fallback(url)
+                return
+            }
+            schedule(url: url)
+        case .denied:
+            logger.notice(
+                "Notificações do Skjaldr foram negadas; usando fallback"
+            )
+            fallback(url)
+        @unknown default:
+            fallback(url)
+        }
+    }
+
+    private func schedule(url: URL) {
         let content = UNMutableNotificationContent()
         content.title = "Vídeo concluído"
         content.body = "O link foi criado e copiado: \(url.absoluteString)"
         content.sound = .default
+        content.interruptionLevel = .active
         content.threadIdentifier = "skjaldr-video-completed"
         content.userInfo = ["publicURL": url.absoluteString]
 
+        let identifier = "video-completed-\(UUID().uuidString)"
         center.add(
             UNNotificationRequest(
-                identifier: "video-completed-\(UUID().uuidString)",
+                identifier: identifier,
                 content: content,
                 trigger: nil
             )
-        )
+        ) { [weak self] error in
+            guard let error else { return }
+            Task { @MainActor [weak self] in
+                self?.logger.error(
+                    """
+                    Falha ao publicar notificação: \
+                    \(error.localizedDescription, privacy: .public)
+                    """
+                )
+                self?.fallback(url)
+            }
+        }
     }
 
     nonisolated func userNotificationCenter(
@@ -45,7 +106,7 @@ final class VideoCompletionNotificationController:
         withCompletionHandler completionHandler:
             @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        completionHandler([.banner, .list, .sound])
     }
 
     nonisolated func userNotificationCenter(

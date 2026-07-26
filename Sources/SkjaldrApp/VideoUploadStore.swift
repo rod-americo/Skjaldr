@@ -5,6 +5,7 @@ import OSLog
 @MainActor
 final class VideoUploadStore: ObservableObject {
     var onUploadCompleted: ((URL) -> Void)?
+    var onLocalFileDeleted: ((URL) -> Void)?
 
     @Published private(set) var phase: VideoUploadPhase = .idle
     @Published private(set) var progress: Double = 0
@@ -72,7 +73,11 @@ final class VideoUploadStore: ObservableObject {
             return
         }
         queue.append(PendingVideoUpload(fileURL: fileURL))
-        persistQueue()
+        guard persistQueue() else {
+            errorMessage = VideoUploadError.queuePersistence.localizedDescription
+            phase = .failed
+            return
+        }
         startWorkerIfNeeded()
     }
 
@@ -135,17 +140,21 @@ final class VideoUploadStore: ObservableObject {
               !isSuspendedForRecording
         {
             do {
-                try await uploadFirst()
-                let completed = queue.removeFirst()
-                persistQueue()
-                if let optimizedFilePath = completed.optimizedFilePath {
-                    try? FileManager.default.removeItem(
-                        atPath: optimizedFilePath
-                    )
+                if let completedURL = queue[0].completedPublicURL {
+                    finalizeFirstJob(publicURL: completedURL)
+                    continue
                 }
-                if deleteLocalAfterUpload {
-                    try? FileManager.default.removeItem(at: completed.fileURL)
+                guard let completedURL = try await uploadFirst() else {
+                    queue.removeFirst()
+                    persistQueue()
+                    phase = .idle
+                    continue
                 }
+                queue[0].completedPublicURL = completedURL
+                guard persistQueue() else {
+                    throw VideoUploadError.queuePersistence
+                }
+                finalizeFirstJob(publicURL: completedURL)
             } catch {
                 if isSuspendedForRecording ||
                     Task.isCancelled ||
@@ -168,8 +177,84 @@ final class VideoUploadStore: ObservableObject {
         }
     }
 
-    private func uploadFirst() async throws {
+    private func finalizeFirstJob(publicURL: URL) {
         guard !queue.isEmpty else { return }
+        let completed = queue[0]
+        if deleteLocalAfterUpload {
+            if let identity = completed.originalIdentity,
+               VideoUploadOptimizer.fileMatches(
+                completed.fileURL,
+                expectedIdentity: identity
+               )
+            {
+                do {
+                    try FileManager.default.removeItem(
+                        at: completed.fileURL
+                    )
+                    onLocalFileDeleted?(completed.fileURL)
+                } catch {
+                    logger.error(
+                        "Upload concluído, mas o arquivo local foi preservado"
+                    )
+                }
+            } else if FileManager.default.fileExists(
+                atPath: completed.fileURL.path
+            ) {
+                logger.error(
+                    """
+                    Upload concluído; arquivo local alterado externamente \
+                    foi preservado
+                    """
+                )
+            }
+            if let optimizedFilePath = completed.optimizedFilePath {
+                try? FileManager.default.removeItem(
+                    atPath: optimizedFilePath
+                )
+            }
+        } else if let optimizedFilePath = completed.optimizedFilePath {
+            let optimizedURL = URL(fileURLWithPath: optimizedFilePath)
+            if FileManager.default.fileExists(atPath: optimizedURL.path),
+               let identity = completed.originalIdentity
+            {
+                do {
+                    try VideoUploadOptimizer.replaceOriginal(
+                        at: completed.fileURL,
+                        with: optimizedURL,
+                        expectedIdentity: identity
+                    )
+                } catch {
+                    logger.error(
+                        """
+                        Upload concluído, mas não foi possível substituir \
+                        o vídeo local pela versão compacta
+                        """
+                    )
+                    try? FileManager.default.removeItem(at: optimizedURL)
+                }
+            } else if FileManager.default.fileExists(atPath: optimizedURL.path) {
+                logger.error(
+                    """
+                    Upload concluído; identidade do arquivo original ausente, \
+                    mantendo a cópia local intacta
+                    """
+                )
+                try? FileManager.default.removeItem(at: optimizedURL)
+            }
+        }
+
+        queue.removeFirst()
+        persistQueue()
+        self.publicURL = publicURL
+        phase = .completed
+        copyLink()
+        onUploadCompleted?(publicURL)
+    }
+
+    private func uploadFirst() async throws -> URL? {
+        guard !queue.isEmpty else {
+            throw VideoUploadError.invalidResponse
+        }
         var job = queue[0]
         let configuration: CloudUploadConfiguration
         do {
@@ -177,24 +262,26 @@ final class VideoUploadStore: ObservableObject {
         } catch CocoaError.fileNoSuchFile {
             throw VideoUploadError.notConfigured
         }
-        guard configuration.uploadEnabled else { return }
+        guard configuration.uploadEnabled else { return nil }
 
         phase = .preparing
         errorMessage = nil
         publicURL = nil
         progress = 0
         if job.optimizedFilePath == nil {
-            let cacheDirectory = queueURL.deletingLastPathComponent()
-                .appendingPathComponent("video-upload-cache")
-            let optimizedURL = cacheDirectory
-                .appendingPathComponent("\(job.id.uuidString).mp4")
+            let optimizedURL = VideoUploadOptimizer.destinationURL(
+                for: job.fileURL,
+                jobID: job.id
+            )
             _ = try await VideoUploadOptimizer.optimize(
                 sourceURL: job.fileURL,
                 destinationURL: optimizedURL
             )
             job.optimizedFilePath = optimizedURL.path
             queue[0] = job
-            persistQueue()
+            guard persistQueue() else {
+                throw VideoUploadError.queuePersistence
+            }
         }
         let prepared = try await VideoUploadPreparation.prepare(
             job.uploadFileURL
@@ -216,11 +303,7 @@ final class VideoUploadStore: ObservableObject {
                       let headers = resource.uploadHeaders
                 else {
                     if resource.status == "available" {
-                        publicURL = resource.publicURL
-                        phase = .completed
-                        copyLink()
-                        onUploadCompleted?(resource.publicURL)
-                        return
+                        return resource.publicURL
                     }
                     throw VideoUploadError.invalidResponse
                 }
@@ -246,12 +329,8 @@ final class VideoUploadStore: ObservableObject {
                 guard completed.status == "available" else {
                     throw VideoUploadError.invalidResponse
                 }
-                publicURL = completed.publicURL
-                phase = .completed
-                copyLink()
-                onUploadCompleted?(completed.publicURL)
                 logger.notice("upload_completed: \(completed.id, privacy: .public)")
-                return
+                return completed.publicURL
             } catch {
                 lastError = error
                 if attempt < 2 {
@@ -264,7 +343,8 @@ final class VideoUploadStore: ObservableObject {
         throw lastError ?? VideoUploadError.invalidResponse
     }
 
-    private func persistQueue() {
+    @discardableResult
+    private func persistQueue() -> Bool {
         do {
             try FileManager.default.createDirectory(
                 at: queueURL.deletingLastPathComponent(),
@@ -273,8 +353,10 @@ final class VideoUploadStore: ObservableObject {
             )
             let data = try JSONEncoder().encode(queue)
             try data.write(to: queueURL, options: .atomic)
+            return true
         } catch {
             logger.error("Não foi possível persistir a fila de upload")
+            return false
         }
     }
 

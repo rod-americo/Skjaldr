@@ -19,7 +19,7 @@
 - assinatura Developer ID estável faz parte do artefato local; notarização
   continua fora do escopo do uso pessoal;
 - o vídeo oferece apenas as proporções 6:13 e 13:6;
-- resolução, codec e 30 fps são fixos;
+- resolução móvel 720 × 1560, codec H.264 e 30 fps são fixos;
 - não há preview, edição, webcam, GIF, zoom ou anotação de vídeo;
 - o atalho global de vídeo é fixo em `⌘⇧9`;
 - não há gravação isolada de uma janela.

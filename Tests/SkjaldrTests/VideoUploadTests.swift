@@ -60,6 +60,34 @@ struct VideoUploadTests {
         #expect(decoded[0].fileURL.path == "/tmp/video-laudo.mp4")
     }
 
+    @Test("Conclusão remota permanece durável sem o derivado local")
+    func completedQueueItemSurvivesMissingDerivative() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("video.mp4")
+        try Data("video".utf8).write(to: source)
+        var item = PendingVideoUpload(fileURL: source)
+        item.optimizedFilePath = directory
+            .appendingPathComponent(".skjaldr-upload-missing.mp4").path
+        item.completedPublicURL = URL(
+            string: "https://odin.med.br/123-456"
+        )
+
+        let data = try JSONEncoder().encode([item])
+        let decoded = try JSONDecoder().decode(
+            [PendingVideoUpload].self,
+            from: data
+        )
+
+        #expect(decoded[0].completedPublicURL == item.completedPublicURL)
+        #expect(decoded[0].originalIdentity != nil)
+    }
+
     @Test("Resposta remota decodifica URLs em snake case")
     func remoteResponseDecodes() throws {
         let data = Data(

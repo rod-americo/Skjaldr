@@ -3,7 +3,75 @@ import CoreVideo
 import Foundation
 
 enum VideoUploadOptimizer {
-    static let targetVideoBitRate = 6_000_000
+    static let targetVideoBitRate = 3_000_000
+
+    static func destinationURL(
+        for sourceURL: URL,
+        jobID: UUID
+    ) -> URL {
+        sourceURL.deletingLastPathComponent().appendingPathComponent(
+            ".skjaldr-upload-\(jobID.uuidString.lowercased()).mp4"
+        )
+    }
+
+    static func replaceOriginal(
+        at originalURL: URL,
+        with optimizedURL: URL,
+        expectedIdentity: LocalVideoIdentity
+    ) throws {
+        let fileManager = FileManager.default
+        let originalDirectory = originalURL
+            .deletingLastPathComponent()
+            .standardizedFileURL
+        let optimizedDirectory = optimizedURL
+            .deletingLastPathComponent()
+            .standardizedFileURL
+        guard originalDirectory == optimizedDirectory,
+              fileManager.fileExists(atPath: originalURL.path),
+              fileManager.fileExists(atPath: optimizedURL.path),
+              fileMatches(
+                originalURL,
+                expectedIdentity: expectedIdentity
+              )
+        else {
+            throw VideoUploadError.videoOptimizationFailed
+        }
+
+        let backupName = ".skjaldr-original-\(UUID().uuidString).mp4"
+        let backupURL = originalDirectory.appendingPathComponent(backupName)
+        do {
+            _ = try fileManager.replaceItemAt(
+                originalURL,
+                withItemAt: optimizedURL,
+                backupItemName: backupName,
+                options: []
+            )
+            try? fileManager.removeItem(at: backupURL)
+            guard fileManager.fileExists(atPath: originalURL.path) else {
+                throw VideoUploadError.videoOptimizationFailed
+            }
+        } catch {
+            if !fileManager.fileExists(atPath: originalURL.path),
+               fileManager.fileExists(atPath: backupURL.path)
+            {
+                try? fileManager.moveItem(
+                    at: backupURL,
+                    to: originalURL
+                )
+            }
+            throw error
+        }
+    }
+
+    static func fileMatches(
+        _ url: URL,
+        expectedIdentity: LocalVideoIdentity
+    ) -> Bool {
+        guard let current = LocalVideoIdentity.load(from: url) else {
+            return false
+        }
+        return current == expectedIdentity
+    }
 
     static func optimize(
         sourceURL: URL,

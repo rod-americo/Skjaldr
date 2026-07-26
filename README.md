@@ -61,9 +61,9 @@ Implementado:
 - captura de vídeo em `Phone Portrait` (6:13) e `Phone Landscape` (13:6);
 - controle permanente pela barra de menus, sem trazer o compositor à frente;
 - seleção multitelas com proporção fixa e restauração da última região;
-- moldura persistente, passiva e excluída do vídeo durante a gravação;
+- moldura persistente em quatro bordas leves, passiva e excluída do vídeo;
 - áudio do sistema, microfone, ambos ou nenhum;
-- exportação MP4 em H.264/AAC a 30 fps;
+- exportação 720 × 1560 (ou 1560 × 720) em H.264/AAC a 30 fps;
 - salvamento automático na pasta configurada;
 - início e parada pelo atalho global `⌘⇧9`;
 - cancelamento sem salvar nem enviar pelo atalho global `⌥⌘⇧9`;
@@ -72,11 +72,12 @@ Implementado:
 - validação da duração da trilha de vídeo antes de salvar ou enviar;
 - finalização segura ao encerrar o aplicativo durante uma gravação.
 - upload assíncrono para Cloudflare R2 depois do salvamento local;
-- derivado H.264 a 6 Mb/s e `faststart` para upload, preservando o original;
+- MP4 móvel H.264 a 3 Mb/s e `faststart`, com bruto recuperável até o upload;
 - URL curta `https://odin.med.br/123-456`, copiada automaticamente;
 - retry persistente e progresso sem bloquear novas capturas;
+- conclusão remota persistida antes de substituir o MP4 local;
 - Worker, D1, R2 privado, Range HTTP, revogação e retenção configurável.
-- notificação nativa de conclusão em segundo plano, sem ativar o aplicativo.
+- notificação nativa de conclusão, com banner local se o macOS a bloquear.
 
 ## Requisitos
 

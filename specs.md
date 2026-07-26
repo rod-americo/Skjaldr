@@ -69,8 +69,8 @@ Os presets representam proporções, não modelos específicos de aparelho.
 
 | Preset | Proporção da região | Resolução de saída inicial |
 |---|---:|---:|
-| `Phone Portrait` | 9:19,5 (6:13) | 1080 × 2340 |
-| `Phone Landscape` | 19,5:9 (13:6) | 2340 × 1080 |
+| `Phone Portrait` | 9:19,5 (6:13) | 720 × 1560 |
+| `Phone Landscape` | 19,5:9 (13:6) | 1560 × 720 |
 
 A resolução da região selecionada pode ser diferente da resolução de saída. O
 pipeline deve redimensionar a captura para a resolução do preset sem distorcer,
@@ -362,11 +362,22 @@ O MVP estará pronto quando:
     macOS, sem ativar o aplicativo, somente depois de o link estar disponível
     e copiado.
 20. o arquivo enviado ser uma cópia H.264 otimizada para reprodução móvel,
-    com bitrate-alvo de 6 Mb/s e início progressivo, preservando integralmente
-    o MP4 local original.
+    com bitrate-alvo de 3 Mb/s e início progressivo; o bruto permanece
+    recuperável até a confirmação remota e então é substituído no mesmo
+    caminho pela versão compacta.
 21. a duração da trilha de vídeo acompanhar a duração total da gravação; uma
     trilha ausente ou incompleta deve impedir salvamento, upload e divulgação
     de URL.
+22. a moldura persistente não usar uma superfície transparente do tamanho
+    integral da seleção; somente as quatro bordas estreitas podem permanecer
+    compostas durante a gravação.
+23. se o macOS não autorizar ou não entregar a notificação nativa, um banner
+    passivo deve confirmar a conclusão sem ativar o compositor.
+24. a confirmação remota deve ser persistida antes de substituir ou apagar o
+    MP4 local; retomadas não podem recomprimir o arquivo com a mesma chave de
+    idempotência.
+25. a troca ou exclusão local deve conferir a identidade do arquivo capturado
+    e nunca sobrescrever um arquivo alterado externamente no mesmo caminho.
 
 ## Estratégia de implementação
 

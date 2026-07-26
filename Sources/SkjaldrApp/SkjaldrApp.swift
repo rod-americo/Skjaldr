@@ -9,22 +9,30 @@ struct SkjaldrApp: App {
     @StateObject private var uploadStore: VideoUploadStore
     private let completionNotificationController:
         VideoCompletionNotificationController
+    private let completionBannerController:
+        VideoCompletionBannerController
 
     init() {
         let store = ProjectStore()
         let videoStore = VideoRecorderStore()
         let uploadStore = VideoUploadStore()
+        let completionBannerController =
+            VideoCompletionBannerController()
         let completionNotificationController =
-            VideoCompletionNotificationController()
+            VideoCompletionNotificationController {
+                [weak completionBannerController] url in
+                completionBannerController?.present(url: url)
+            }
         uploadStore.onUploadCompleted = {
             [weak completionNotificationController] url in
             completionNotificationController?
-                .presentIfApplicationIsInBackground(
-                url: url
-            )
+                .present(url: url)
         }
         videoStore.onRecordingSaved = { [weak uploadStore] url in
             uploadStore?.enqueue(url)
+        }
+        uploadStore.onLocalFileDeleted = { [weak videoStore] url in
+            videoStore?.forgetLastRecording(ifMatching: url)
         }
         videoStore.onCaptureActivityChanged = {
             [weak store, weak uploadStore] active in
@@ -41,6 +49,7 @@ struct SkjaldrApp: App {
         _uploadStore = StateObject(wrappedValue: uploadStore)
         self.completionNotificationController =
             completionNotificationController
+        self.completionBannerController = completionBannerController
         appDelegate.videoStore = videoStore
         Task { @MainActor in
             videoStore.startHotKeyMonitoring()
@@ -160,15 +169,6 @@ struct SkjaldrApp: App {
                     Image(systemName: "record.circle.fill")
                 } else if videoStore.phase == .finishing {
                     Image(systemName: "hourglass.circle")
-                } else if uploadStore.phase == .completed {
-                    Image(systemName: "checkmark.circle.fill")
-                } else if uploadStore.phase == .failed {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                } else if uploadStore.phase == .preparing ||
-                            uploadStore.phase == .uploading ||
-                            uploadStore.phase == .confirming
-                {
-                    Image(systemName: "icloud.and.arrow.up")
                 } else {
                     Image("MenuBarIcon")
                 }

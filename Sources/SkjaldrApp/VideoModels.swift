@@ -32,8 +32,8 @@ enum PhoneVideoPreset: String, Codable, CaseIterable, Identifiable {
 
     var outputSize: CGSize {
         switch self {
-        case .portrait: CGSize(width: 1080, height: 2340)
-        case .landscape: CGSize(width: 2340, height: 1080)
+        case .portrait: CGSize(width: 720, height: 1560)
+        case .landscape: CGSize(width: 1560, height: 720)
         }
     }
 }
@@ -260,6 +260,7 @@ struct VideoCapturePreferences {
         static let audioMode = "video.audioMode"
         static let microphoneID = "video.microphoneID"
         static let outputDirectory = "video.outputDirectory"
+        static let lastRecording = "video.lastRecording"
         static let portraitRegion = "video.region.portrait"
         static let landscapeRegion = "video.region.landscape"
     }
@@ -300,6 +301,19 @@ struct VideoCapturePreferences {
                 .appendingPathComponent("Skjaldr", isDirectory: true)
         }
         nonmutating set { defaults.set(newValue.path, forKey: Key.outputDirectory) }
+    }
+
+    var lastRecordingURL: URL? {
+        get {
+            guard let path = defaults.string(forKey: Key.lastRecording)
+            else {
+                return nil
+            }
+            return URL(fileURLWithPath: path)
+        }
+        nonmutating set {
+            defaults.set(newValue?.path, forKey: Key.lastRecording)
+        }
     }
 
     func storedRegion(for preset: PhoneVideoPreset) -> StoredCaptureRegion? {

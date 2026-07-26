@@ -59,20 +59,43 @@ struct PendingVideoUpload: Codable, Identifiable, Equatable {
     let id: UUID
     let filePath: String
     let idempotencyKey: String
+    let originalIdentity: LocalVideoIdentity?
     var attempts: Int
     var optimizedFilePath: String?
+    var completedPublicURL: URL?
 
     init(fileURL: URL) {
         id = UUID()
         filePath = fileURL.path
         idempotencyKey = UUID().uuidString.lowercased()
+        originalIdentity = LocalVideoIdentity.load(from: fileURL)
         attempts = 0
         optimizedFilePath = nil
+        completedPublicURL = nil
     }
 
     var fileURL: URL { URL(fileURLWithPath: filePath) }
     var uploadFileURL: URL {
         optimizedFilePath.map(URL.init(fileURLWithPath:)) ?? fileURL
+    }
+}
+
+struct LocalVideoIdentity: Codable, Equatable {
+    let sizeBytes: Int64
+    let modificationDate: Date
+
+    static func load(from url: URL) -> Self? {
+        guard let attributes = try? FileManager.default.attributesOfItem(
+            atPath: url.path
+        ), let size = attributes[.size] as? NSNumber,
+           let modificationDate = attributes[.modificationDate] as? Date
+        else {
+            return nil
+        }
+        return Self(
+            sizeBytes: size.int64Value,
+            modificationDate: modificationDate
+        )
     }
 }
 
@@ -112,6 +135,7 @@ enum VideoUploadError: LocalizedError {
     case fileTooLarge
     case invalidVideo
     case videoOptimizationFailed
+    case queuePersistence
     case invalidResponse
     case remote(String)
     case clipboard
@@ -132,6 +156,8 @@ enum VideoUploadError: LocalizedError {
             "O arquivo MP4 não pôde ser validado para reprodução."
         case .videoOptimizationFailed:
             "Não foi possível preparar uma cópia otimizada do vídeo."
+        case .queuePersistence:
+            "Não foi possível registrar com segurança o estado do upload."
         case .invalidResponse:
             "O serviço de upload retornou uma resposta inválida."
         case let .remote(message):

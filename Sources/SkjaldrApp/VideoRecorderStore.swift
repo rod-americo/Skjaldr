@@ -70,6 +70,11 @@ final class VideoRecorderStore: ObservableObject {
         audioMode = preferences.audioMode
         outputDirectory = preferences.outputDirectory
         microphones = MicrophoneSource.available()
+        if let savedRecording = preferences.lastRecordingURL,
+           FileManager.default.fileExists(atPath: savedRecording.path)
+        {
+            lastRecordingURL = savedRecording
+        }
 
         let savedID = preferences.microphoneID
         selectedMicrophoneID = microphones.contains(where: { $0.id == savedID })
@@ -197,7 +202,46 @@ final class VideoRecorderStore: ObservableObject {
 
     func revealLastRecording() {
         guard let lastRecordingURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([lastRecordingURL])
+        let url = lastRecordingURL.standardizedFileURL
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            self.lastRecordingURL = nil
+            preferences.lastRecordingURL = nil
+            showError(
+                VideoRecordingError.recordingFailed(
+                    "o último vídeo local não existe mais"
+                )
+            )
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            // Aguarda o menu da barra fechar antes de transferir o foco.
+            try? await Task.sleep(for: .milliseconds(150))
+            let directory = url.deletingLastPathComponent()
+            let selected = NSWorkspace.shared.selectFile(
+                url.path,
+                inFileViewerRootedAtPath: directory.path
+            )
+            if !selected {
+                NSWorkspace.shared.open(directory)
+                self?.showToast("Pasta do último vídeo aberta")
+            }
+            NSRunningApplication.runningApplications(
+                withBundleIdentifier: "com.apple.finder"
+            ).first?.activate(
+                options: [.activateAllWindows]
+            )
+        }
+    }
+
+    func forgetLastRecording(ifMatching deletedURL: URL) {
+        guard lastRecordingURL?.standardizedFileURL
+                == deletedURL.standardizedFileURL
+        else {
+            return
+        }
+        lastRecordingURL = nil
+        preferences.lastRecordingURL = nil
     }
 
     func openOutputDirectory() {
@@ -308,6 +352,7 @@ final class VideoRecorderStore: ObservableObject {
         do {
             let url = try await recorder.stop()
             lastRecordingURL = url
+            preferences.lastRecordingURL = url
             resetToIdle()
             showToast("Vídeo salvo: \(url.lastPathComponent)")
             onRecordingSaved?(url)
@@ -391,6 +436,7 @@ final class VideoRecorderStore: ObservableObject {
                 .recoverTemporaryRecordings(in: self.outputDirectory)
             guard !recovered.isEmpty else { return }
             self.lastRecordingURL = recovered.last
+            self.preferences.lastRecordingURL = recovered.last
             let count = recovered.count
             self.showToast(
                 count == 1
