@@ -2,75 +2,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72">
   <title>Skjaldr menu bar icon</title>
   <desc>Two image cards behind a protected foreground card.</desc>
+  <g fill="#000000">
+    <path
+      fill-rule="evenodd"
+      d="
+        M11 13 L31 9 Q36 8 37 13 L44 47 Q45 52 40 53 L17 57 Q12 58 11 53 L5 20 Q4 15 11 13 Z
+        M13 20 L30 17 L36 45 L19 49 Z
+      "
+    />
+    <path
+      fill-rule="evenodd"
+      d="
+        M41 9 L61 13 Q68 15 67 20 L61 53 Q60 58 55 57 L32 53 Q27 52 28 47 L35 13 Q36 8 41 9 Z
+        M42 17 L59 20 L53 49 L36 45 Z
+      "
+    />
+    <path
+      d="
+        M24 27
+        H48
+        A5 5 0 0 1 53 32
+        V60
+        A5 5 0 0 1 48 65
+        H24
+        A5 5 0 0 1 19 60
+        V32
+        A5 5 0 0 1 24 27
+        Z
+      "
+    />
+  </g>
+  <!-- This white knockout is converted to transparency in the template PNGs. -->
   <path
-    fill="#000000"
+    fill="#ffffff"
     d="
-      M12 14
-      L32 10
-      Q36 9 37 13
-      L40 28
-      H34
-      L32 17
-      L14 20
-      L16 30
-      H10
-      L8 20
-      Q7 15 12 14
-      Z
-    "
-  />
-  <path
-    fill="#000000"
-    d="
-      M40 10
-      L60 14
-      Q65 15 64 20
-      L62 30
-      H56
-      L58 20
-      L40 17
-      L38 28
-      H32
-      L35 13
-      Q36 9 40 10
-      Z
-    "
-  />
-  <path
-    fill="#000000"
-    fill-rule="evenodd"
-    d="
-      M24 27
-      H48
-      A5 5 0 0 1 53 32
-      V60
-      A5 5 0 0 1 48 65
-      H24
-      A5 5 0 0 1 19 60
-      V32
-      A5 5 0 0 1 24 27
-      Z
-
-      M26 33
-      H46
-      A1 1 0 0 1 47 34
-      V58
-      A1 1 0 0 1 46 59
-      H26
-      A1 1 0 0 1 25 58
-      V34
-      A1 1 0 0 1 26 33
-      Z
-    "
-  />
-  <path
-    fill="#000000"
-    d="
-      M30 37
-      Q36 34 42 37
-      V44
-      Q42 52 36 57
-      Q30 52 30 44
+      M28 35
+      Q36 31 44 35
+      V43
+      Q44 53 36 59
+      Q28 53 28 43
       Z
     "
   />
