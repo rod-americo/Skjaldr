@@ -1,6 +1,10 @@
 import Foundation
 
 struct SessionPersistence {
+    static let primaryCompositionID = UUID(
+        uuidString: "8F56D086-E6E5-42F4-9364-672CBFD49A31"
+    )!
+
     let rootDirectory: URL
 
     var sourcesDirectory: URL { rootDirectory.appendingPathComponent("Sources", isDirectory: true) }
@@ -10,6 +14,18 @@ struct SessionPersistence {
     static func live() -> SessionPersistence {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return SessionPersistence(rootDirectory: base.appendingPathComponent("Skjaldr", isDirectory: true))
+    }
+
+    static func live(compositionID: UUID) -> SessionPersistence {
+        let primary = live()
+        guard compositionID != primaryCompositionID else {
+            return primary
+        }
+        return SessionPersistence(
+            rootDirectory: primary.rootDirectory
+                .appendingPathComponent("Composicoes", isDirectory: true)
+                .appendingPathComponent(compositionID.uuidString, isDirectory: true)
+        )
     }
 
     func load() -> CompositionState? {

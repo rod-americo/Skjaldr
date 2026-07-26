@@ -241,6 +241,28 @@ struct RendererClipboardTests {
         #expect(!ImageDeletionShortcut.matches(keyCode: 36, modifiers: []))
     }
 
+    @Test("Command W fecha somente a aba de composição")
+    func compositionTabCloseShortcutMatchesCommandW() {
+        #expect(
+            CompositionTabCloseShortcut.matches(
+                keyCode: 13,
+                modifiers: [.command]
+            )
+        )
+        #expect(
+            !CompositionTabCloseShortcut.matches(
+                keyCode: 13,
+                modifiers: [.command, .shift]
+            )
+        )
+        #expect(
+            !CompositionTabCloseShortcut.matches(
+                keyCode: 13,
+                modifiers: []
+            )
+        )
+    }
+
     @Test("Sessão anterior sem grupos continua compatível")
     func legacySessionMigration() throws {
         var state = CompositionState()
@@ -271,6 +293,18 @@ struct RendererClipboardTests {
         #expect(restored.outputProfile.outerMargin == 12)
         #expect(restored.outputProfile.horizontalSpacing == 12)
         #expect(restored.outputProfile.verticalSpacing == 12)
+    }
+
+    @Test("Abas usam sessões locais independentes")
+    func compositionTabsUseIndependentPersistence() {
+        let primary = SessionPersistence.live(
+            compositionID: SessionPersistence.primaryCompositionID
+        )
+        let secondary = SessionPersistence.live(compositionID: UUID())
+
+        #expect(primary.rootDirectory == SessionPersistence.live().rootDirectory)
+        #expect(secondary.rootDirectory != primary.rootDirectory)
+        #expect(secondary.rootDirectory.deletingLastPathComponent().lastPathComponent == "Composicoes")
     }
 
     @MainActor

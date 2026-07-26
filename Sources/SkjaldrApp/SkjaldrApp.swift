@@ -4,7 +4,7 @@ import SwiftUI
 struct SkjaldrApp: App {
     @NSApplicationDelegateAdaptor(SkjaldrApplicationDelegate.self)
     private var appDelegate
-    @StateObject private var store: ProjectStore
+    @StateObject private var workspace: CompositionWorkspace
     @StateObject private var videoStore: VideoRecorderStore
     @StateObject private var uploadStore: VideoUploadStore
     private let completionNotificationController:
@@ -13,9 +13,9 @@ struct SkjaldrApp: App {
         VideoCompletionBannerController
 
     init() {
-        let store = ProjectStore()
         let videoStore = VideoRecorderStore()
         let uploadStore = VideoUploadStore()
+        let workspace = CompositionWorkspace(videoStore: videoStore)
         let completionBannerController =
             VideoCompletionBannerController()
         let completionNotificationController =
@@ -35,132 +35,56 @@ struct SkjaldrApp: App {
             videoStore?.forgetLastRecording(ifMatching: url)
         }
         videoStore.onCaptureActivityChanged = {
-            [weak store, weak uploadStore] active in
+            [weak workspace, weak uploadStore] active in
             if active {
-                store?.suspendForVideoRecording()
+                workspace?.suspendForVideoRecording()
                 uploadStore?.suspendForVideoRecording()
             } else {
-                store?.resumeAfterVideoRecording()
+                workspace?.resumeAfterVideoRecording()
                 uploadStore?.resumeAfterVideoRecording()
             }
         }
-        _store = StateObject(wrappedValue: store)
+        _workspace = StateObject(wrappedValue: workspace)
         _videoStore = StateObject(wrappedValue: videoStore)
         _uploadStore = StateObject(wrappedValue: uploadStore)
         self.completionNotificationController =
             completionNotificationController
         self.completionBannerController = completionBannerController
         appDelegate.videoStore = videoStore
+        appDelegate.workspace = workspace
         Task { @MainActor in
             videoStore.startHotKeyMonitoring()
+            workspace.startGlobalHotKeyMonitoring()
         }
     }
 
     var body: some Scene {
-        WindowGroup("Skjaldr", id: "composer") {
-            ContentView()
-                .environmentObject(store)
-                .environmentObject(videoStore)
-                .environmentObject(uploadStore)
+        WindowGroup(
+            "Skjaldr",
+            id: "composer",
+            for: CompositionSceneRequest.self
+        ) { $request in
+            CompositionWindowRoot(
+                request: request,
+                workspace: workspace,
+                videoStore: videoStore,
+                uploadStore: uploadStore
+            )
+        } defaultValue: {
+            CompositionSceneRequest.primary
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 1240, height: 780)
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("Nova composição") {
-                    store.newComposition()
-                }
-                .keyboardShortcut("n", modifiers: .command)
-                Button("Importar imagens…") {
-                    store.openImporter()
-                }
-                .keyboardShortcut("o", modifiers: .command)
-                Button("Salvar composição…") {
-                    store.saveComposition()
-                }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(store.state.items.isEmpty)
-            }
-
-            CommandGroup(replacing: .pasteboard) {
-                Button("Desfazer") { store.undo() }
-                    .keyboardShortcut("z", modifiers: .command)
-                    .disabled(!store.canUndo)
-                Button("Refazer") { store.redo() }
-                    .keyboardShortcut("z", modifiers: [.command, .shift])
-                    .disabled(!store.canRedo)
-                Divider()
-                Button("Copiar composição") { store.copyComposition() }
-                    .keyboardShortcut("c", modifiers: .command)
-                    .disabled(store.state.items.isEmpty)
-                Button("Adicionar imagem da área de transferência") { store.pasteFromClipboard() }
-                    .keyboardShortcut("v", modifiers: .command)
-            }
-
-            CommandMenu("Composição") {
-                Button("Layout automático") { store.setLayout(.automatic) }
-                    .keyboardShortcut("1", modifiers: .command)
-                Button("Comparação") { store.setLayout(.comparison) }
-                    .keyboardShortcut("2", modifiers: .command)
-                Button("Grade") { store.setLayout(.grid) }
-                    .keyboardShortcut("3", modifiers: .command)
-                Divider()
-                Button("Reorganizar") { store.setLayout(store.state.layoutMode) }
-                    .keyboardShortcut("r", modifiers: .command)
-                Button("Duplicar imagem selecionada") { store.duplicateSelected() }
-                    .keyboardShortcut("d", modifiers: .command)
-                    .disabled(store.selectedItemID == nil)
-                Button("Agrupar seleção como linha") { store.createRowGroup() }
-                    .keyboardShortcut("g", modifiers: .command)
-                    .disabled(!store.canCreateRowGroup)
-                Button("Desagrupar linha") { store.ungroupSelected() }
-                    .keyboardShortcut("g", modifiers: [.command, .shift])
-                    .disabled(store.selectedGroup == nil)
-                Button("Remover imagem selecionada") { store.removeSelected() }
-                    .disabled(store.selectedItemID == nil && store.selectedItemIDs.isEmpty)
-                Divider()
-                Button(store.monitor.isRunning ? "Parar monitoramento" : "Iniciar monitoramento") {
-                    store.toggleMonitoring()
-                }
-            }
-
-            CommandMenu("Captura") {
-                Button("Configurar gravação…") {
-                    videoStore.showConfiguration()
-                }
-                .disabled(videoStore.phase != .idle)
-
-                Divider()
-
-                Button(recordingCommandTitle) {
-                    videoStore.handleRecordingShortcut()
-                }
-                .keyboardShortcut("9", modifiers: [.command, .shift])
-                .disabled(
-                    videoStore.phase == .preparing ||
-                    videoStore.phase == .finishing
-                )
-
-                Button("Cancelar gravação sem salvar") {
-                    videoStore.cancelRecording()
-                }
-                .keyboardShortcut(
-                    "9",
-                    modifiers: [.command, .shift, .option]
-                )
-                .disabled(videoStore.phase != .recording)
-
-                if videoStore.lastRecordingURL != nil {
-                    Divider()
-                    Button("Mostrar último vídeo no Finder") {
-                        videoStore.revealLastRecording()
-                    }
-                }
-            }
+            SkjaldrCommands(
+                workspace: workspace,
+                videoStore: videoStore
+            )
         }
 
         MenuBarExtra {
             MenuBarView()
+                .environmentObject(workspace)
                 .environmentObject(videoStore)
                 .environmentObject(uploadStore)
         } label: {
@@ -179,19 +103,9 @@ struct SkjaldrApp: App {
 
         Settings {
             SettingsView()
-                .environmentObject(store)
+                .environmentObject(workspace)
                 .environmentObject(videoStore)
                 .environmentObject(uploadStore)
-        }
-    }
-
-    private var recordingCommandTitle: String {
-        switch videoStore.phase {
-        case .idle: "Iniciar gravação"
-        case .selecting: "Cancelar seleção"
-        case .recording: "Parar gravação"
-        case .preparing: "Preparando gravação"
-        case .finishing: "Finalizando gravação"
         }
     }
 }
@@ -199,9 +113,21 @@ struct SkjaldrApp: App {
 @MainActor
 private final class SkjaldrApplicationDelegate: NSObject, NSApplicationDelegate {
     weak var videoStore: VideoRecorderStore?
+    weak var workspace: CompositionWorkspace?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         videoStore?.startHotKeyMonitoring()
+        workspace?.startGlobalHotKeyMonitoring()
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        if !flag {
+            workspace?.showExistingTabOrRequestNew()
+        }
+        return true
     }
 
     func applicationShouldTerminate(
@@ -218,7 +144,7 @@ private final class SkjaldrApplicationDelegate: NSObject, NSApplicationDelegate 
 }
 
 private struct SettingsView: View {
-    @EnvironmentObject private var store: ProjectStore
+    @EnvironmentObject private var workspace: CompositionWorkspace
     @EnvironmentObject private var videoStore: VideoRecorderStore
     @EnvironmentObject private var uploadStore: VideoUploadStore
 
@@ -235,14 +161,22 @@ private struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Section("Capturas") {
-                Toggle(
-                    "Monitorar pasta ao abrir",
-                    isOn: Binding(
-                        get: { store.monitor.isRunning },
-                        set: { _ in store.toggleMonitoring() }
+                if let store = workspace.activeStore {
+                    Toggle(
+                        "Monitorar pasta ao abrir",
+                        isOn: Binding(
+                            get: { store.monitor.isRunning },
+                            set: { _ in store.toggleMonitoring() }
+                        )
                     )
-                )
-                Button("Escolher pasta…", action: store.chooseMonitoringFolder)
+                    Button(
+                        "Escolher pasta…",
+                        action: store.chooseMonitoringFolder
+                    )
+                } else {
+                    Text("Abra uma aba de composição para configurar capturas.")
+                        .foregroundStyle(.secondary)
+                }
             }
             Section("Vídeo") {
                 LabeledContent("Pasta de saída") {

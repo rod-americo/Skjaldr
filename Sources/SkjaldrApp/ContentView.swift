@@ -17,13 +17,29 @@ enum ImageDeletionShortcut {
     }
 }
 
+enum CompositionTabCloseShortcut {
+    static func matches(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+        let normalized = modifiers.intersection(.deviceIndependentFlagsMask)
+        let conflicting = normalized.intersection([.control, .option, .shift])
+        return keyCode == 13 &&
+            normalized.contains(.command) &&
+            conflicting.isEmpty
+    }
+
+    static func matches(_ event: NSEvent) -> Bool {
+        matches(keyCode: event.keyCode, modifiers: event.modifierFlags)
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject private var store: ProjectStore
+    @EnvironmentObject private var workspace: CompositionWorkspace
     @EnvironmentObject private var videoStore: VideoRecorderStore
     @EnvironmentObject private var uploadStore: VideoUploadStore
     @State private var isDropTarget = false
     @State private var previewScale: CGFloat = 0.82
     @State private var deleteKeyMonitor: Any?
+    let windowID: UUID
 
     var body: some View {
         HSplitView {
@@ -114,9 +130,21 @@ struct ContentView: View {
     private func startDeleteKeyMonitoring() {
         guard deleteKeyMonitor == nil else { return }
         deleteKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard let keyWindow = NSApp.keyWindow,
+                  keyWindow.identifier?.rawValue ==
+                    "io.skjaldr.composer.\(windowID.uuidString)"
+            else {
+                return event
+            }
+
+            if CompositionTabCloseShortcut.matches(event) {
+                DispatchQueue.main.async {
+                    workspace.closeActiveTab()
+                }
+                return nil
+            }
+
             guard ImageDeletionShortcut.matches(event),
-                  let keyWindow = NSApp.keyWindow,
-                  !(keyWindow is NSPanel),
                   !(keyWindow.firstResponder is NSTextView),
                   store.selectedItemID != nil || !store.selectedItemIDs.isEmpty
             else {

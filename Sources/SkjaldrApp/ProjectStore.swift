@@ -23,6 +23,7 @@ final class ProjectStore: ObservableObject {
     private var redoStates: [CompositionState] = []
     private var toastTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
+    private var monitorObservation: AnyCancellable?
     private var suspendedMonitoringDirectory: URL?
     private var isSuspendedForRecording = false
 
@@ -36,6 +37,10 @@ final class ProjectStore: ObservableObject {
         var restoredState = persistence.load() ?? CompositionState()
         let migrated = restoredState.migrateIfNeeded()
         self.state = restoredState
+        self.monitorObservation = monitor.objectWillChange.sink {
+            [weak self] _ in
+            self?.objectWillChange.send()
+        }
         state.items.removeAll { !FileManager.default.fileExists(atPath: $0.sourceURL.path) }
         state.normalizeOrder()
         if migrated {

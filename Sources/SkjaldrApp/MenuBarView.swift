@@ -56,8 +56,8 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button("Abrir compositor de imagens") {
-                openWindow(id: "composer")
+            Button("Nova janela de composição") {
+                openWindow(id: "composer", value: CompositionSceneRequest.newWindow())
                 NSApp.activate(ignoringOtherApps: true)
             }
 

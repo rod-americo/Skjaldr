@@ -1,0 +1,503 @@
+import AppKit
+import Carbon.HIToolbox
+import SwiftUI
+
+enum CompositionPresentation: String, Codable, Hashable {
+    case window
+    case tab
+}
+
+struct CompositionSceneRequest: Codable, Hashable {
+    let compositionID: UUID
+    let presentation: CompositionPresentation
+
+    static let primary = CompositionSceneRequest(
+        compositionID: SessionPersistence.primaryCompositionID,
+        presentation: .window
+    )
+
+    static func newWindow() -> CompositionSceneRequest {
+        CompositionSceneRequest(compositionID: UUID(), presentation: .window)
+    }
+}
+
+@MainActor
+final class CompositionTab: Identifiable {
+    let id: UUID
+    let title: String
+    let store: ProjectStore
+
+    init(id: UUID, title: String, store: ProjectStore) {
+        self.id = id
+        self.title = title
+        self.store = store
+    }
+}
+
+@MainActor
+final class CompositionWindowController: ObservableObject {
+    @Published private(set) var tabs: [CompositionTab]
+    @Published private(set) var activeTabID: UUID
+
+    let request: CompositionSceneRequest
+    private unowned let workspace: CompositionWorkspace
+
+    init(
+        request: CompositionSceneRequest,
+        workspace: CompositionWorkspace
+    ) {
+        self.request = request
+        self.workspace = workspace
+        let storedIDs = UserDefaults.standard
+            .stringArray(
+                forKey: Self.tabsDefaultsKey(for: request.compositionID)
+            )?
+            .compactMap(UUID.init(uuidString:))
+        let compositionIDs: [UUID]
+        if let storedIDs, !storedIDs.isEmpty {
+            compositionIDs = storedIDs
+        } else {
+            compositionIDs = [request.compositionID]
+        }
+        let restoredTabs = compositionIDs.map(workspace.makeTab)
+        self.tabs = restoredTabs
+        let storedActiveID = UserDefaults.standard
+            .string(
+                forKey: Self.activeTabDefaultsKey(
+                    for: request.compositionID
+                )
+            )
+            .flatMap(UUID.init(uuidString:))
+        self.activeTabID = restoredTabs.contains(where: {
+            $0.id == storedActiveID
+        }) ? storedActiveID! : restoredTabs[0].id
+    }
+
+    var activeTab: CompositionTab {
+        tabs.first(where: { $0.id == activeTabID }) ?? tabs[0]
+    }
+
+    func addTab() {
+        let tab = workspace.makeTab(compositionID: UUID())
+        tabs.append(tab)
+        select(tab.id)
+    }
+
+    func select(_ id: UUID) {
+        guard tabs.contains(where: { $0.id == id }) else { return }
+        activeTabID = id
+        persistTabState()
+        workspace.activate(controller: self)
+    }
+
+    func close(_ id: UUID) {
+        guard let index = tabs.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        guard tabs.count > 1 else {
+            workspace.requestWindowClose(for: self)
+            return
+        }
+
+        let removed = tabs.remove(at: index)
+        removed.store.monitor.stop()
+        if activeTabID == id {
+            let replacementIndex = min(index, tabs.count - 1)
+            activeTabID = tabs[replacementIndex].id
+        }
+        persistTabState()
+        workspace.activate(controller: self)
+    }
+
+    func closeActiveTab() {
+        close(activeTabID)
+    }
+
+    private func persistTabState() {
+        UserDefaults.standard.set(
+            tabs.map { $0.id.uuidString },
+            forKey: Self.tabsDefaultsKey(for: request.compositionID)
+        )
+        UserDefaults.standard.set(
+            activeTabID.uuidString,
+            forKey: Self.activeTabDefaultsKey(for: request.compositionID)
+        )
+    }
+
+    private static func tabsDefaultsKey(for windowID: UUID) -> String {
+        "abasComposicao.\(windowID.uuidString)"
+    }
+
+    private static func activeTabDefaultsKey(for windowID: UUID) -> String {
+        "abaAtivaComposicao.\(windowID.uuidString)"
+    }
+}
+
+@MainActor
+final class CompositionWorkspace: ObservableObject {
+    @Published private(set) var activeStore: ProjectStore?
+
+    private final class WindowRecord {
+        weak var window: NSWindow?
+        let controller: CompositionWindowController
+
+        init(window: NSWindow, controller: CompositionWindowController) {
+            self.window = window
+            self.controller = controller
+        }
+    }
+
+    private weak var videoStore: VideoRecorderStore?
+    private weak var activeController: CompositionWindowController?
+    private var records: [ObjectIdentifier: WindowRecord] = [:]
+    private var nextSequence = 1
+    private var observers: [NSObjectProtocol] = []
+    private var isGlobalHotKeyRegistered = false
+
+    private lazy var newWindowHotKey = GlobalHotKeyController(
+        id: 3,
+        keyCode: UInt32(kVK_F13),
+        modifiers: GlobalHotKeyController.commandModifiers
+    ) { [weak self] in
+        self?.requestNewWindowFromGlobalShortcut()
+    }
+
+    init(videoStore: VideoRecorderStore) {
+        self.videoStore = videoStore
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let window = notification.object as? NSWindow else {
+                    return
+                }
+                MainActor.assumeIsolated {
+                    self?.activate(window: window)
+                }
+            }
+        )
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let window = notification.object as? NSWindow else {
+                    return
+                }
+                MainActor.assumeIsolated {
+                    self?.remove(window: window)
+                }
+            }
+        )
+    }
+
+    deinit {
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    func makeStore(compositionID: UUID) -> ProjectStore {
+        ProjectStore(
+            persistence: .live(compositionID: compositionID),
+            restoreMonitorPreference: false
+        )
+    }
+
+    func makeTab(compositionID: UUID) -> CompositionTab {
+        let tab = CompositionTab(
+            id: compositionID,
+            title: "Montagem \(nextSequence)",
+            store: makeStore(compositionID: compositionID)
+        )
+        nextSequence += 1
+        return tab
+    }
+
+    func register(
+        window: NSWindow,
+        controller: CompositionWindowController
+    ) {
+        let key = ObjectIdentifier(window)
+        guard records[key] == nil else {
+            activate(controller: controller)
+            return
+        }
+        records[key] = WindowRecord(window: window, controller: controller)
+        window.identifier = NSUserInterfaceItemIdentifier(
+            "io.skjaldr.composer.\(controller.request.compositionID.uuidString)"
+        )
+        window.tabbingMode = .disallowed
+        window.title = "Skjaldr"
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        activate(controller: controller)
+        startGlobalHotKeyMonitoring()
+    }
+
+    func addTabToActiveWindow() {
+        activeController?.addTab()
+    }
+
+    func closeActiveTab() {
+        activeController?.closeActiveTab()
+    }
+
+    func requestWindowClose(for controller: CompositionWindowController) {
+        guard let record = records.values.first(where: {
+            $0.controller === controller
+        }), let window = record.window
+        else {
+            return
+        }
+        for tab in controller.tabs {
+            tab.store.monitor.stop()
+        }
+        window.orderOut(nil)
+        if activeController === controller {
+            activeController = nil
+            activeStore = nil
+        }
+    }
+
+    func activate(controller: CompositionWindowController) {
+        activeController = controller
+        let store = controller.activeTab.store
+        if activeStore !== store {
+            activeStore?.monitor.stop()
+            activeStore = store
+        }
+        resumePreferredMonitoring(on: store)
+    }
+
+    func startGlobalHotKeyMonitoring() {
+        guard !isGlobalHotKeyRegistered else { return }
+        isGlobalHotKeyRegistered = newWindowHotKey.register()
+        if !isGlobalHotKeyRegistered {
+            activeStore?.toastMessage =
+                "⌘F13 indisponível; use Arquivo > Nova janela"
+        }
+    }
+
+    func suspendForVideoRecording() {
+        for record in records.values {
+            for tab in record.controller.tabs {
+                tab.store.suspendForVideoRecording()
+            }
+        }
+    }
+
+    func resumeAfterVideoRecording() {
+        for record in records.values {
+            for tab in record.controller.tabs {
+                tab.store.resumeAfterVideoRecording()
+            }
+        }
+        if let activeStore {
+            resumePreferredMonitoring(on: activeStore)
+        }
+    }
+
+    func showExistingTabOrRequestNew() {
+        if let window = records.values.compactMap(\.window).first {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            requestNewWindowFromGlobalShortcut()
+        }
+    }
+
+    private func requestNewWindowFromGlobalShortcut() {
+        NSApp.activate(ignoringOtherApps: true)
+        guard let item = findMenuItem(
+            titled: "Nova janela de composição",
+            in: NSApp.mainMenu
+        ), let action = item.action
+        else {
+            return
+        }
+        NSApp.sendAction(action, to: item.target, from: item)
+    }
+
+    private func findMenuItem(titled title: String, in menu: NSMenu?) -> NSMenuItem? {
+        guard let menu else { return nil }
+        for item in menu.items {
+            if item.title == title {
+                return item
+            }
+            if let match = findMenuItem(titled: title, in: item.submenu) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    private func activate(window: NSWindow) {
+        guard let record = records[ObjectIdentifier(window)] else { return }
+        activate(controller: record.controller)
+    }
+
+    private func resumePreferredMonitoring(on store: ProjectStore) {
+        guard videoStore?.phase == .idle,
+              UserDefaults.standard.bool(forKey: "monitoramentoAtivo"),
+              !store.monitor.isRunning,
+              let path = UserDefaults.standard.string(forKey: "pastaMonitorada")
+        else {
+            return
+        }
+        store.startMonitoring(URL(fileURLWithPath: path))
+    }
+
+    private func remove(window: NSWindow) {
+        let key = ObjectIdentifier(window)
+        guard let removed = records.removeValue(forKey: key) else { return }
+        for tab in removed.controller.tabs {
+            tab.store.monitor.stop()
+        }
+        guard activeController === removed.controller else { return }
+        activeController = nil
+        activeStore = nil
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  let keyWindow = NSApp.keyWindow,
+                  let record = self.records[ObjectIdentifier(keyWindow)]
+            else {
+                return
+            }
+            self.activate(controller: record.controller)
+        }
+    }
+}
+
+struct CompositionWindowRoot: View {
+    let request: CompositionSceneRequest
+    @ObservedObject var workspace: CompositionWorkspace
+    @ObservedObject var videoStore: VideoRecorderStore
+    @ObservedObject var uploadStore: VideoUploadStore
+    @StateObject private var controller: CompositionWindowController
+
+    init(
+        request: CompositionSceneRequest,
+        workspace: CompositionWorkspace,
+        videoStore: VideoRecorderStore,
+        uploadStore: VideoUploadStore
+    ) {
+        self.request = request
+        self.workspace = workspace
+        self.videoStore = videoStore
+        self.uploadStore = uploadStore
+        _controller = StateObject(
+            wrappedValue: CompositionWindowController(
+                request: request,
+                workspace: workspace
+            )
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            CompositionTabBar(controller: controller)
+            CompositionTabContent(
+                tab: controller.activeTab,
+                windowID: request.compositionID
+            )
+            .id(controller.activeTabID)
+        }
+        .environmentObject(workspace)
+        .environmentObject(videoStore)
+        .environmentObject(uploadStore)
+        .background {
+            WindowAccessor { window in
+                workspace.register(window: window, controller: controller)
+            }
+        }
+    }
+}
+
+private struct CompositionTabContent: View {
+    let tab: CompositionTab
+    let windowID: UUID
+
+    var body: some View {
+        ContentView(windowID: windowID)
+            .environmentObject(tab.store)
+    }
+}
+
+private struct CompositionTabBar: View {
+    @ObservedObject var controller: CompositionWindowController
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(controller.tabs) { tab in
+                HStack(spacing: 5) {
+                    Button(tab.title) {
+                        controller.select(tab.id)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption.weight(
+                        tab.id == controller.activeTabID
+                            ? .semibold
+                            : .regular
+                    ))
+
+                    Button {
+                        controller.close(tab.id)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Fechar aba")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    tab.id == controller.activeTabID
+                        ? Color(nsColor: .windowBackgroundColor)
+                        : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 7)
+                )
+            }
+
+            Button {
+                controller.addTab()
+            } label: {
+                Image(systemName: "plus")
+                    .font(.caption.weight(.semibold))
+            }
+            .buttonStyle(.plain)
+            .help("Nova aba de composição")
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(.bar)
+    }
+}
+
+private struct WindowAccessor: NSViewRepresentable {
+    let onResolve: (NSWindow) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let window = view.window {
+                onResolve(window)
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            if let window = view.window {
+                onResolve(window)
+            }
+        }
+    }
+}

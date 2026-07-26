@@ -3,11 +3,11 @@ import Foundation
 
 final class GlobalHotKeyController {
     private static let signature: OSType = 0x534B5644 // "SKVD"
+    static let commandModifiers = UInt32(cmdKey)
     static let commandShiftModifiers = UInt32(cmdKey | shiftKey)
     static let commandShiftOptionModifiers = UInt32(
         cmdKey | shiftKey | optionKey
     )
-
     private let id: UInt32
     private let keyCode: UInt32
     private let modifiers: UInt32
