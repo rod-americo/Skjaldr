@@ -216,20 +216,13 @@ final class VideoRecorderStore: ObservableObject {
 
         Task { @MainActor [weak self] in
             // Aguarda o menu da barra fechar antes de transferir o foco.
-            try? await Task.sleep(for: .milliseconds(150))
-            let directory = url.deletingLastPathComponent()
-            let selected = NSWorkspace.shared.selectFile(
-                url.path,
-                inFileViewerRootedAtPath: directory.path
-            )
-            if !selected {
-                NSWorkspace.shared.open(directory)
-                self?.showToast("Pasta do último vídeo aberta")
-            }
-            NSRunningApplication.runningApplications(
-                withBundleIdentifier: "com.apple.finder"
-            ).first?.activate(
-                options: [.activateAllWindows]
+            try? await Task.sleep(for: .milliseconds(300))
+
+            // Esta é a API específica do macOS para revelar arquivos. Além de
+            // selecionar a URL, ela inicia e traz o Finder para a frente.
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            self?.logger.info(
+                "Último vídeo solicitado no Finder: \(url.lastPathComponent, privacy: .public)"
             )
         }
     }
