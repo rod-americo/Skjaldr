@@ -144,20 +144,29 @@ final class ScreenCaptureRecorder: NSObject {
     }
 
     func stop() async throws -> URL {
-        guard let stream, let output = recordingOutput else {
+        guard let stream, recordingOutput != nil else {
             throw VideoRecordingError.recordingDidNotStart
         }
 
         do {
             try await withCheckedThrowingContinuation { continuation in
                 finishContinuation = continuation
-                do {
-                    try stream.removeRecordingOutput(output)
-                } catch {
-                    resumeFinish(throwing: error)
+                Task { @MainActor [weak self] in
+                    guard let self, self.stream != nil else {
+                        self?.resumeFinish(
+                            throwing: VideoRecordingError.recordingDidNotStart
+                        )
+                        return
+                    }
+                    do {
+                        // Stopping the stream also finalizes its recording output.
+                        // removeRecordingOutput is only for keeping the stream alive.
+                        try await stream.stopCapture()
+                    } catch {
+                        self.resumeFinish(throwing: error)
+                    }
                 }
             }
-            try await stream.stopCapture()
 
             guard let temporaryURL,
                   let destinationURL,

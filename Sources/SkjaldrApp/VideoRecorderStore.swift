@@ -360,6 +360,7 @@ final class VideoRecorderStore: ObservableObject {
     private func showError(_ error: Error) {
         let message = (error as? LocalizedError)?.errorDescription
             ?? error.localizedDescription
+        let nsError = error as NSError
         if let recordingError = error as? VideoRecordingError {
             switch recordingError {
             case .screenPermissionDenied:
@@ -372,7 +373,13 @@ final class VideoRecorderStore: ObservableObject {
         } else {
             privacySettingsTarget = nil
         }
-        logger.error("Falha na captura de vídeo: \(message, privacy: .public)")
+        logger.error(
+            """
+            Falha na captura de vídeo: \(message, privacy: .public); \
+            domínio=\(nsError.domain, privacy: .public); \
+            código=\(nsError.code, privacy: .public)
+            """
+        )
         lastErrorMessage = message
     }
 }
