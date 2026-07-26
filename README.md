@@ -68,7 +68,7 @@ Implementado:
 - salvamento automático na pasta configurada;
 - início e parada pelo atalho global `⌘F14`;
 - cancelamento sem salvar nem enviar pelo atalho global `⌃⌥F14`;
-- nova janela com composição vazia pelo atalho global `⌘F13`;
+- nova composição em aba pelo atalho global `⌘F13`;
 - suspensão do monitor de imagens e da fila de upload durante a captura;
 - recuperação de MP4 temporário e timeout de finalização;
 - validação da duração da trilha de vídeo antes de salvar ou enviar;
@@ -143,7 +143,7 @@ aplicativo a outras pessoas.
 
 ## Uso rápido
 
-1. Abra o Skjaldr; use `⌘T` para outra aba ou `⌘N` para outra janela.
+1. Abra o Skjaldr; use `⌘T` ou `⌘N` para outra composição em aba.
 2. Pressione `⌘V`, arraste imagens para a janela ou use **Adicionar**.
 3. Escolha Automático, Grade ou Comparação.
 4. Reordene pelas miniaturas, se necessário.
@@ -207,9 +207,9 @@ Atalhos principais:
 
 | Atalho | Ação |
 |---|---|
-| `⌘N` | nova janela de composição |
-| `⌘T` | nova aba de composição na janela ativa |
-| `⌘F13` | abrir globalmente uma nova janela com composição vazia |
+| `⌘N` | nova composição em aba |
+| `⌘T` | nova aba de composição na janela única |
+| `⌘F13` | mostrar o Skjaldr e abrir uma composição em aba |
 | `⌘W` | fechar a aba atual; na última, ocultar o Skjaldr |
 | `⌘V` | adicionar imagem do clipboard |
 | `⌘C` | copiar sempre a composição final |

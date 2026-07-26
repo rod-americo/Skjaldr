@@ -12,17 +12,15 @@ struct SkjaldrCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Nova janela de composição") {
-                openWindow(id: "composer", value: CompositionSceneRequest.newWindow())
-                NSApp.activate(ignoringOtherApps: true)
+            Button("Nova composição") {
+                openCompositionTab()
             }
             .keyboardShortcut("n", modifiers: .command)
 
             Button("Nova aba de composição") {
-                workspace.addTabToActiveWindow()
+                openCompositionTab()
             }
             .keyboardShortcut("t", modifiers: .command)
-            .disabled(store == nil)
 
             Button("Importar imagens…") {
                 store?.openImporter()
@@ -173,6 +171,15 @@ struct SkjaldrCommands: Commands {
         case .recording: "Parar gravação"
         case .preparing: "Preparando gravação"
         case .finishing: "Finalizando gravação"
+        }
+    }
+
+    private func openCompositionTab() {
+        openWindow(id: "composer")
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async {
+            workspace.addTabToActiveWindow()
         }
     }
 }

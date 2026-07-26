@@ -59,19 +59,13 @@ struct SkjaldrApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(
-            "Skjaldr",
-            id: "composer",
-            for: CompositionSceneRequest.self
-        ) { $request in
+        Window("Skjaldr", id: "composer") {
             CompositionWindowRoot(
-                request: request,
+                request: .primary,
                 workspace: workspace,
                 videoStore: videoStore,
                 uploadStore: uploadStore
             )
-        } defaultValue: {
-            CompositionSceneRequest.primary
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 1240, height: 780)

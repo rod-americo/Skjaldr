@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MenuBarView: View {
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var workspace: CompositionWorkspace
     @EnvironmentObject private var videoStore: VideoRecorderStore
     @EnvironmentObject private var uploadStore: VideoUploadStore
@@ -43,18 +44,11 @@ struct MenuBarView: View {
             Divider()
 
             Button("Mostrar composição") {
-                workspace.showExistingTabOrRequestNew()
+                showComposition(addTab: false)
             }
 
-            Button("Nova janela de composição") {
-                workspace.openNewWindow()
-            }
-
-            Button("Nova aba de composição") {
-                workspace.showExistingTabOrRequestNew()
-                DispatchQueue.main.async {
-                    workspace.addTabToActiveWindow()
-                }
+            Button("Nova composição em aba") {
+                showComposition(addTab: true)
             }
 
             SettingsLink {
@@ -122,6 +116,16 @@ struct MenuBarView: View {
             Divider()
             Label("Upload não concluído", systemImage: "exclamationmark.triangle")
             Button("Tentar novamente", action: uploadStore.retry)
+        }
+    }
+
+    private func showComposition(addTab: Bool) {
+        openWindow(id: "composer")
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        guard addTab else { return }
+        DispatchQueue.main.async {
+            workspace.addTabToActiveWindow()
         }
     }
 }

@@ -33,7 +33,8 @@ enum CompositionTabCloseShortcut {
 
 struct ContentView: View {
     @EnvironmentObject private var store: ProjectStore
-    @EnvironmentObject private var workspace: CompositionWorkspace
+    @EnvironmentObject private var windowController:
+        CompositionWindowController
     @EnvironmentObject private var videoStore: VideoRecorderStore
     @EnvironmentObject private var uploadStore: VideoUploadStore
     @State private var isDropTarget = false
@@ -139,7 +140,7 @@ struct ContentView: View {
 
             if CompositionTabCloseShortcut.matches(event) {
                 DispatchQueue.main.async {
-                    workspace.closeActiveTab()
+                    windowController.closeActiveTab()
                 }
                 return nil
             }

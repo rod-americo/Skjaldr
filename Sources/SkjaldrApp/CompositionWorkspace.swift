@@ -2,23 +2,12 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-enum CompositionPresentation: String, Codable, Hashable {
-    case window
-    case tab
-}
-
-struct CompositionSceneRequest: Codable, Hashable {
+struct CompositionSceneRequest {
     let compositionID: UUID
-    let presentation: CompositionPresentation
 
     static let primary = CompositionSceneRequest(
-        compositionID: SessionPersistence.primaryCompositionID,
-        presentation: .window
+        compositionID: SessionPersistence.primaryCompositionID
     )
-
-    static func newWindow() -> CompositionSceneRequest {
-        CompositionSceneRequest(compositionID: UUID(), presentation: .window)
-    }
 }
 
 @MainActor
@@ -153,13 +142,12 @@ final class CompositionWorkspace: ObservableObject {
     private var nextSequence = 1
     private var observers: [NSObjectProtocol] = []
     private var isGlobalHotKeyRegistered = false
-
     private lazy var newWindowHotKey = GlobalHotKeyController(
         id: 3,
         keyCode: UInt32(kVK_F13),
         modifiers: GlobalHotKeyController.commandModifiers
     ) { [weak self] in
-        self?.openNewWindow()
+        self?.requestNewTabFromGlobalShortcut()
     }
 
     init(videoStore: VideoRecorderStore) {
@@ -223,7 +211,9 @@ final class CompositionWorkspace: ObservableObject {
     ) {
         let key = ObjectIdentifier(window)
         guard records[key] == nil else {
-            activate(controller: controller)
+            if window.isVisible && window.isKeyWindow {
+                activate(controller: controller)
+            }
             return
         }
         records[key] = WindowRecord(window: window, controller: controller)
@@ -242,10 +232,6 @@ final class CompositionWorkspace: ObservableObject {
         activeController?.addTab()
     }
 
-    func closeActiveTab() {
-        activeController?.closeActiveTab()
-    }
-
     func requestWindowClose(for controller: CompositionWindowController) {
         guard let record = records.values.first(where: {
             $0.controller === controller
@@ -253,9 +239,6 @@ final class CompositionWorkspace: ObservableObject {
         else {
             return
         }
-        let nextVisibleWindow = records.values
-            .compactMap(\.window)
-            .first(where: { $0 !== window && $0.isVisible })
         for tab in controller.tabs {
             tab.store.monitor.stop()
         }
@@ -264,12 +247,8 @@ final class CompositionWorkspace: ObservableObject {
             activeController = nil
             activeStore = nil
         }
-        if let nextVisibleWindow {
-            nextVisibleWindow.makeKeyAndOrderFront(nil)
-        } else {
-            DispatchQueue.main.async {
-                NSApp.hide(nil)
-            }
+        DispatchQueue.main.async {
+            NSApp.hide(nil)
         }
     }
 
@@ -288,7 +267,7 @@ final class CompositionWorkspace: ObservableObject {
         isGlobalHotKeyRegistered = newWindowHotKey.register()
         if !isGlobalHotKeyRegistered {
             activeStore?.toastMessage =
-                "⌘F13 indisponível; use Arquivo > Nova janela"
+                "⌘F13 indisponível; use Arquivo > Nova aba"
         }
     }
 
@@ -317,15 +296,15 @@ final class CompositionWorkspace: ObservableObject {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         } else {
-            openNewWindow()
+            requestNewTabFromGlobalShortcut()
         }
     }
 
-    func openNewWindow() {
+    private func requestNewTabFromGlobalShortcut() {
         NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
         guard let item = findMenuItem(
-            titled: "Nova janela de composição",
+            titled: "Nova aba de composição",
             in: NSApp.mainMenu
         ), let action = item.action
         else {
@@ -414,7 +393,8 @@ struct CompositionWindowRoot: View {
             CompositionTabBar(controller: controller)
             CompositionTabContent(
                 tab: controller.activeTab,
-                windowID: request.compositionID
+                windowID: request.compositionID,
+                controller: controller
             )
             .id(controller.activeTabID)
         }
@@ -432,10 +412,12 @@ struct CompositionWindowRoot: View {
 private struct CompositionTabContent: View {
     let tab: CompositionTab
     let windowID: UUID
+    @ObservedObject var controller: CompositionWindowController
 
     var body: some View {
         ContentView(windowID: windowID)
             .environmentObject(tab.store)
+            .environmentObject(controller)
     }
 }
 
