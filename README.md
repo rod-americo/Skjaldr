@@ -67,7 +67,7 @@ Implementado:
 - exportação 720 × 1560 (ou 1560 × 720) em H.264/AAC a 30 fps;
 - salvamento automático na pasta configurada;
 - início e parada pelo atalho global `⌘F14`;
-- cancelamento sem salvar nem enviar pelo atalho global `⌥⌘⇧9`;
+- cancelamento sem salvar nem enviar pelo atalho global `⌃⌥F14`;
 - nova janela com composição vazia pelo atalho global `⌘F13`;
 - suspensão do monitor de imagens e da fila de upload durante a captura;
 - recuperação de MP4 temporário e timeout de finalização;
@@ -222,6 +222,7 @@ Atalhos principais:
 | `⌘⇧G` | desagrupar a linha selecionada |
 | `⌘1` / `⌘2` / `⌘3` | automático / comparação / grade |
 | `⌘F14` | iniciar seleção / cancelar seleção / parar gravação |
+| `⌃⌥F14` | cancelar gravação sem salvar nem enviar |
 
 ## Privacidade
 

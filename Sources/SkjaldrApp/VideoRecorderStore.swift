@@ -59,7 +59,8 @@ final class VideoRecorderStore: ObservableObject {
     }
     private lazy var cancelHotKey = GlobalHotKeyController(
         id: 2,
-        modifiers: GlobalHotKeyController.commandShiftOptionModifiers
+        keyCode: UInt32(kVK_F14),
+        modifiers: GlobalHotKeyController.controlOptionModifiers
     ) { [weak self] in
         Task { @MainActor in
             self?.cancelRecording()
@@ -111,7 +112,7 @@ final class VideoRecorderStore: ObservableObject {
             isCancelHotKeyRegistered = cancelHotKey.register()
         }
         if !isCancelHotKeyRegistered {
-            showToast("⌥⌘⇧9 indisponível; use Cancelar durante a gravação")
+            showToast("⌃⌥F14 indisponível; use Cancelar durante a gravação")
         }
         recoverTemporaryRecordingsIfNeeded()
     }
