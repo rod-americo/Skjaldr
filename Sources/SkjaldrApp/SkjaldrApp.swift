@@ -7,11 +7,22 @@ struct SkjaldrApp: App {
     @StateObject private var store: ProjectStore
     @StateObject private var videoStore: VideoRecorderStore
     @StateObject private var uploadStore: VideoUploadStore
+    private let completionNotificationController:
+        VideoCompletionNotificationController
 
     init() {
         let store = ProjectStore()
         let videoStore = VideoRecorderStore()
         let uploadStore = VideoUploadStore()
+        let completionNotificationController =
+            VideoCompletionNotificationController()
+        uploadStore.onUploadCompleted = {
+            [weak completionNotificationController] url in
+            completionNotificationController?
+                .presentIfApplicationIsInBackground(
+                url: url
+            )
+        }
         videoStore.onRecordingSaved = { [weak uploadStore] url in
             uploadStore?.enqueue(url)
         }
@@ -28,6 +39,8 @@ struct SkjaldrApp: App {
         _store = StateObject(wrappedValue: store)
         _videoStore = StateObject(wrappedValue: videoStore)
         _uploadStore = StateObject(wrappedValue: uploadStore)
+        self.completionNotificationController =
+            completionNotificationController
         appDelegate.videoStore = videoStore
         Task { @MainActor in
             videoStore.startHotKeyMonitoring()

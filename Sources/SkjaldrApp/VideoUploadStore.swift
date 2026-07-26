@@ -4,6 +4,8 @@ import OSLog
 
 @MainActor
 final class VideoUploadStore: ObservableObject {
+    var onUploadCompleted: ((URL) -> Void)?
+
     @Published private(set) var phase: VideoUploadPhase = .idle
     @Published private(set) var progress: Double = 0
     @Published private(set) var sentBytes: Int64 = 0
@@ -185,6 +187,7 @@ final class VideoUploadStore: ObservableObject {
                         publicURL = resource.publicURL
                         phase = .completed
                         copyLink()
+                        onUploadCompleted?(resource.publicURL)
                         return
                     }
                     throw VideoUploadError.invalidResponse
@@ -214,6 +217,7 @@ final class VideoUploadStore: ObservableObject {
                 publicURL = completed.publicURL
                 phase = .completed
                 copyLink()
+                onUploadCompleted?(completed.publicURL)
                 logger.notice("upload_completed: \(completed.id, privacy: .public)")
                 return
             } catch {

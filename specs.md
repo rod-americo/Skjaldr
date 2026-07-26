@@ -358,6 +358,9 @@ O MVP estará pronto quando:
     durante toda a operação de captura;
 18. a finalização nunca aguardar indefinidamente e preservar para recuperação
     qualquer MP4 temporário válido.
+19. a conclusão do upload em segundo plano emitir uma notificação nativa do
+    macOS, sem ativar o aplicativo, somente depois de o link estar disponível
+    e copiado.
 
 ## Estratégia de implementação
 

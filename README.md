@@ -74,6 +74,7 @@ Implementado:
 - URL curta `https://odin.med.br/123-456`, copiada automaticamente;
 - retry persistente e progresso sem bloquear novas capturas;
 - Worker, D1, R2 privado, Range HTTP, revogação e retenção configurável.
+- notificação nativa de conclusão em segundo plano, sem ativar o aplicativo.
 
 ## Requisitos
 
