@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import Carbon.HIToolbox
 import Combine
 import CoreGraphics
 import Foundation
@@ -49,7 +50,8 @@ final class VideoRecorderStore: ObservableObject {
     private var hasCheckedTemporaryRecordings = false
     private lazy var hotKey = GlobalHotKeyController(
         id: 1,
-        modifiers: GlobalHotKeyController.commandShiftModifiers
+        keyCode: UInt32(kVK_F14),
+        modifiers: GlobalHotKeyController.commandModifiers
     ) { [weak self] in
         Task { @MainActor in
             self?.handleRecordingShortcut()
@@ -103,7 +105,7 @@ final class VideoRecorderStore: ObservableObject {
             isHotKeyRegistered = hotKey.register()
         }
         if !isHotKeyRegistered {
-            showToast("⌘⇧9 indisponível; use o botão de gravação")
+            showToast("⌘F14 indisponível; use o botão de gravação")
         }
         if !isCancelHotKeyRegistered {
             isCancelHotKeyRegistered = cancelHotKey.register()

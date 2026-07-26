@@ -143,7 +143,6 @@ struct SkjaldrCommands: Commands {
             Button(recordingCommandTitle) {
                 videoStore.handleRecordingShortcut()
             }
-            .keyboardShortcut("9", modifiers: [.command, .shift])
             .disabled(
                 videoStore.phase == .preparing ||
                 videoStore.phase == .finishing

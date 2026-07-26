@@ -99,7 +99,7 @@ struct VideoCaptureView: View {
             Divider()
 
             HStack {
-                Text("⌘⇧9 inicia ou para usando estas escolhas.")
+                Text("⌘F14 inicia ou para usando estas escolhas.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

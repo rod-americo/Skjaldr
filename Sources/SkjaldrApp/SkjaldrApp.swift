@@ -192,6 +192,6 @@ private struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 520)
     }
 }

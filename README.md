@@ -17,7 +17,7 @@ O módulo de vídeo grava uma região com proporção de telefone, pronta para
 demonstrações e compartilhamento:
 
 ```text
-⌘⇧9 → seleciona a região → Enter → grava → ⌘⇧9 → MP4 pronto
+⌘F14 → seleciona a região → Enter → grava → ⌘F14 → MP4 pronto
 ```
 
 ## Por que “Skjaldr”?
@@ -66,7 +66,7 @@ Implementado:
 - áudio do sistema, microfone, ambos ou nenhum;
 - exportação 720 × 1560 (ou 1560 × 720) em H.264/AAC a 30 fps;
 - salvamento automático na pasta configurada;
-- início e parada pelo atalho global `⌘⇧9`;
+- início e parada pelo atalho global `⌘F14`;
 - cancelamento sem salvar nem enviar pelo atalho global `⌥⌘⇧9`;
 - nova janela com composição vazia pelo atalho global `⌘F13`;
 - suspensão do monitor de imagens e da fila de upload durante a captura;
@@ -161,7 +161,7 @@ Para gravar vídeo:
 4. Clique em **Selecionar região** e desenhe a moldura em qualquer monitor.
 5. Arraste dentro da região para reposicioná-la, se necessário, e pressione
    `Enter`.
-6. Pressione `⌘⇧9` ou use **Parar** para finalizar.
+6. Pressione `⌘F14` ou use **Parar** para finalizar.
 7. O MP4 será salvo automaticamente como
    `yyyyMMdd_HHmm_video-laudo.mp4`, sem diálogo ou preview.
 8. Com a nuvem configurada, o Skjaldr envia o arquivo, confirma sua integridade
@@ -221,7 +221,7 @@ Atalhos principais:
 | `⌘G` | agrupar a seleção como uma linha |
 | `⌘⇧G` | desagrupar a linha selecionada |
 | `⌘1` / `⌘2` / `⌘3` | automático / comparação / grade |
-| `⌘⇧9` | iniciar seleção / cancelar seleção / parar gravação |
+| `⌘F14` | iniciar seleção / cancelar seleção / parar gravação |
 
 ## Privacidade
 

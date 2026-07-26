@@ -12,32 +12,18 @@ struct MenuBarView: View {
 
             Divider()
 
-            Menu("Formato") {
+            Picker("Formato", selection: $videoStore.preset) {
                 ForEach(PhoneVideoPreset.allCases) { preset in
-                    Button {
-                        videoStore.preset = preset
-                    } label: {
-                        if videoStore.preset == preset {
-                            Label(preset.title, systemImage: "checkmark")
-                        } else {
-                            Text(preset.title)
-                        }
-                    }
+                    Text(preset.title)
+                        .tag(preset)
                 }
             }
             .disabled(videoStore.phase != .idle)
 
-            Menu("Áudio") {
+            Picker("Áudio", selection: $videoStore.audioMode) {
                 ForEach(RecordingAudioMode.allCases) { mode in
-                    Button {
-                        videoStore.audioMode = mode
-                    } label: {
-                        if videoStore.audioMode == mode {
-                            Label(mode.title, systemImage: "checkmark")
-                        } else {
-                            Text(mode.title)
-                        }
-                    }
+                    Text(mode.title)
+                        .tag(mode)
                 }
             }
             .disabled(videoStore.phase != .idle)
