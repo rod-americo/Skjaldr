@@ -52,7 +52,7 @@ describe("public video page", () => {
     expect(html).not.toContain("<h1>Vídeo do laudo</h1>");
     expect(html).toContain("Assinatura profissional");
     expect(html).toContain("width:100%");
-    expect(html).toContain("sem cookies, IP armazenado ou identificação pessoal");
+    expect(html).not.toContain("Estatísticas técnicas");
     expect(html).toContain('/analytics/123456/"+event');
   });
 

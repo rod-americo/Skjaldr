@@ -432,9 +432,6 @@ export function page(
   const signature = code && professionalSignature
     ? `<p class="signature">${escapeHTML(professionalSignature)}</p>`
     : "";
-  const privacy = code
-    ? `<p class="privacy">Estatísticas técnicas agregadas, sem cookies, IP armazenado ou identificação pessoal.</p>`
-    : "";
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive"><title>${title}</title>
@@ -444,14 +441,13 @@ export function page(
   video{display:block;width:100%;height:auto;background:#000;border-radius:8px;
   box-shadow:0 10px 32px #0008}.copy{margin:7px 8px 4px}
   p{margin:0;color:#b7bdc8;line-height:1.35}.signature{margin-top:3px;
-  color:#858c98;font-size:12px;line-height:1.3}.privacy{margin-top:5px;
-  color:#646b76;font-size:10px;line-height:1.25}#loading,#error{margin:8px}
+  color:#858c98;font-size:12px;line-height:1.3}#loading,#error{margin:8px}
   h1{margin:16px}
   @media(min-width:700px){body{display:grid;place-items:center}
   main{width:min(920px,96vw);padding:8px}video{width:auto;max-width:100%;
   max-height:calc(100vh - 92px);margin:auto;border-radius:12px}}</style>
   </head><body><main>${heading}${video}<div class="copy"><p>${message}</p>
-  ${signature}${privacy}</div></main><script>const v=document.getElementById("video");
+  ${signature}</div></main><script>const v=document.getElementById("video");
   if(v){const l=document.getElementById("loading"),e=document.getElementById("error");
   v.addEventListener("loadeddata",()=>l.hidden=true);v.addEventListener("error",()=>{
   l.hidden=true;e.hidden=false});let started=false,completed=false;
