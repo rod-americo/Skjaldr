@@ -336,17 +336,19 @@ O MVP estará pronto quando:
 5. os quatro modos de áudio produzirem o resultado correspondente, sem perda
    perceptível de sincronização em uma gravação de pelo menos dez minutos;
 6. iniciar e parar funcionarem pela interface e pelo atalho escolhido;
-7. o arquivo aparecer automaticamente na pasta configurada, sem diálogo e sem
+7. cancelar uma gravação em curso por `⌥⌘⇧9` apagar o arquivo temporário,
+   sem salvar o vídeo nem iniciar o upload;
+8. o arquivo aparecer automaticamente na pasta configurada, sem diálogo e sem
    sobrescrever outro arquivo;
-8. cancelar a seleção não deixar MP4 nem temporário órfão;
-9. negar permissões produzir uma orientação compreensível e não iniciar captura
+9. cancelar a seleção não deixar MP4 nem temporário órfão;
+10. negar permissões produzir uma orientação compreensível e não iniciar captura
    incompleta;
-10. moldura, painel e indicador próprios do Skjaldr não aparecerem no vídeo;
-11. as últimas escolhas e regiões válidas serem restauradas após reiniciar o
+11. moldura, painel e indicador próprios do Skjaldr não aparecerem no vídeo;
+12. as últimas escolhas e regiões válidas serem restauradas após reiniciar o
     aplicativo;
-12. o compositor de imagens e seus testes continuarem funcionando sem mudança
+13. o compositor de imagens e seus testes continuarem funcionando sem mudança
     de comportamento;
-13. recompilar e reinstalar o app não exigir nova autorização de tela ou
+14. recompilar e reinstalar o app não exigir nova autorização de tela ou
     microfone.
 
 ## Estratégia de implementação

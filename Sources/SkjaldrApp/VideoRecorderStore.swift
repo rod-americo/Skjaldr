@@ -43,9 +43,21 @@ final class VideoRecorderStore: ObservableObject {
     private var toastTask: Task<Void, Never>?
     private var terminationCompletion: (() -> Void)?
     private var isHotKeyRegistered = false
-    private lazy var hotKey = GlobalHotKeyController { [weak self] in
+    private var isCancelHotKeyRegistered = false
+    private lazy var hotKey = GlobalHotKeyController(
+        id: 1,
+        modifiers: GlobalHotKeyController.commandShiftModifiers
+    ) { [weak self] in
         Task { @MainActor in
             self?.handleRecordingShortcut()
+        }
+    }
+    private lazy var cancelHotKey = GlobalHotKeyController(
+        id: 2,
+        modifiers: GlobalHotKeyController.commandShiftOptionModifiers
+    ) { [weak self] in
+        Task { @MainActor in
+            self?.cancelRecording()
         }
     }
 
@@ -79,10 +91,17 @@ final class VideoRecorderStore: ObservableObject {
     }
 
     func startHotKeyMonitoring() {
-        guard !isHotKeyRegistered else { return }
-        isHotKeyRegistered = hotKey.register()
+        if !isHotKeyRegistered {
+            isHotKeyRegistered = hotKey.register()
+        }
         if !isHotKeyRegistered {
             showToast("⌘⇧9 indisponível; use o botão de gravação")
+        }
+        if !isCancelHotKeyRegistered {
+            isCancelHotKeyRegistered = cancelHotKey.register()
+        }
+        if !isCancelHotKeyRegistered {
+            showToast("⌥⌘⇧9 indisponível; use Cancelar durante a gravação")
         }
     }
 
@@ -128,6 +147,19 @@ final class VideoRecorderStore: ObservableObject {
         }
     }
 
+    func cancelRecording() {
+        guard phase == .recording else { return }
+        phase = .finishing
+        durationTask?.cancel()
+        operationTask?.cancel()
+        operationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.recorder.cancel()
+            self.resetToIdle()
+            self.showToast("Gravação cancelada")
+        }
+    }
+
     func cancelCurrentOperation() {
         switch phase {
         case .idle:
@@ -139,7 +171,7 @@ final class VideoRecorderStore: ObservableObject {
             Task { await recorder.cancel() }
             resetToIdle()
         case .recording:
-            stopRecording()
+            cancelRecording()
         case .finishing:
             break
         }

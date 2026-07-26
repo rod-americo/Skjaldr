@@ -65,6 +65,7 @@ Implementado:
 - exportação MP4 em H.264/AAC a 30 fps;
 - salvamento automático na pasta configurada;
 - início e parada pelo atalho global `⌘⇧9`;
+- cancelamento sem salvar nem enviar pelo atalho global `⌥⌘⇧9`;
 - finalização segura ao encerrar o aplicativo durante uma gravação.
 - upload assíncrono para Cloudflare R2 depois do salvamento local;
 - URL curta `https://odin.med.br/123-456`, copiada automaticamente;

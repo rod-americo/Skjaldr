@@ -3,12 +3,27 @@ import Foundation
 
 final class GlobalHotKeyController {
     private static let signature: OSType = 0x534B5644 // "SKVD"
+    static let commandShiftModifiers = UInt32(cmdKey | shiftKey)
+    static let commandShiftOptionModifiers = UInt32(
+        cmdKey | shiftKey | optionKey
+    )
 
+    private let id: UInt32
+    private let keyCode: UInt32
+    private let modifiers: UInt32
     private var hotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
     private let action: () -> Void
 
-    init(action: @escaping () -> Void) {
+    init(
+        id: UInt32,
+        keyCode: UInt32 = UInt32(kVK_ANSI_9),
+        modifiers: UInt32,
+        action: @escaping () -> Void
+    ) {
+        self.id = id
+        self.keyCode = keyCode
+        self.modifiers = modifiers
         self.action = action
     }
 
@@ -22,11 +37,29 @@ final class GlobalHotKeyController {
         )
         let status = InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, userData in
-                guard let userData else { return noErr }
+            { _, event, userData in
+                guard let event, let userData else {
+                    return OSStatus(eventNotHandledErr)
+                }
                 let controller = Unmanaged<GlobalHotKeyController>
                     .fromOpaque(userData)
                     .takeUnretainedValue()
+                var pressedHotKey = EventHotKeyID()
+                let parameterStatus = GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &pressedHotKey
+                )
+                guard parameterStatus == noErr,
+                      pressedHotKey.signature == GlobalHotKeyController.signature,
+                      pressedHotKey.id == controller.id
+                else {
+                    return OSStatus(eventNotHandledErr)
+                }
                 DispatchQueue.main.async {
                     controller.action()
                 }
@@ -42,11 +75,11 @@ final class GlobalHotKeyController {
         var reference: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(
             signature: Self.signature,
-            id: 1
+            id: id
         )
         let registrationStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_9),
-            UInt32(cmdKey | shiftKey),
+            keyCode,
+            modifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,

@@ -106,6 +106,15 @@ struct SkjaldrApp: App {
                     videoStore.phase == .finishing
                 )
 
+                Button("Cancelar gravação sem salvar") {
+                    videoStore.cancelRecording()
+                }
+                .keyboardShortcut(
+                    "9",
+                    modifiers: [.command, .shift, .option]
+                )
+                .disabled(videoStore.phase != .recording)
+
                 if videoStore.lastRecordingURL != nil {
                     Divider()
                     Button("Mostrar último vídeo no Finder") {

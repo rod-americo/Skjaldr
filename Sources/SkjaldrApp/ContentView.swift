@@ -146,6 +146,8 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 Button("Parar", action: videoStore.stopRecording)
                     .controlSize(.small)
+                Button("Cancelar", action: videoStore.cancelRecording)
+                    .controlSize(.small)
             } else {
                 ProgressView()
                     .controlSize(.small)
