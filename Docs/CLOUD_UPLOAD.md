@@ -98,6 +98,15 @@ Consulta local por código ou URL:
 ./Scripts/video-stats.sh https://odin.med.br/123-456
 ```
 
+Resumo dos 20 vídeos mais recentes:
+
+```bash
+./Scripts/video-stats.sh --recent 20
+```
+
+O limite pode variar de 1 a 100. O comando apresenta código, status, data de
+criação, visualizações, reproduções iniciadas e reproduções concluídas.
+
 ## Falhas e recuperação
 
 O MP4 local é a fonte de recuperação. A fila
@@ -123,6 +132,9 @@ Rotas administrativas exigem `Authorization: Bearer`:
 POST   /api/videos/{id}/revoke
 DELETE /api/videos/{id}
 GET    /api/videos/{id}/status
+GET    /api/videos/{id}/stats
+GET    /api/stats?code=123-456
+GET    /api/stats/recent?limit=20
 ```
 
 Revogar mantém o objeto e torna a página indisponível. Excluir remove o objeto

@@ -5,6 +5,7 @@ import {
   generateShortCode,
   normalizeShortCode,
   page,
+  parseRecentStatsLimit,
 } from "../src/index";
 
 describe("short codes", () => {
@@ -24,6 +25,20 @@ describe("short codes", () => {
     for (const value of [0, 1, 899999, 900000, 0xffffffff]) {
       expect(generateShortCode(value)).toMatch(/^[1-9][0-9]{5}$/);
     }
+  });
+});
+
+describe("recent statistics limits", () => {
+  it("defaults to 20 and accepts bounded positive limits", () => {
+    expect(parseRecentStatsLimit(null)).toBe(20);
+    expect(parseRecentStatsLimit("1")).toBe(1);
+    expect(parseRecentStatsLimit("100")).toBe(100);
+  });
+
+  it("rejects malformed and excessive limits", () => {
+    expect(parseRecentStatsLimit("0")).toBeNull();
+    expect(parseRecentStatsLimit("20.5")).toBeNull();
+    expect(parseRecentStatsLimit("101")).toBeNull();
   });
 });
 

@@ -79,6 +79,13 @@ export function normalizeShortCode(value: string): string | null {
   return /^[1-9][0-9]{5}$/.test(normalized) ? normalized : null;
 }
 
+export function parseRecentStatsLimit(value: string | null): number | null {
+  if (value === null) return 20;
+  if (!/^[1-9][0-9]*$/.test(value)) return null;
+  const limit = Number(value);
+  return Number.isSafeInteger(limit) && limit <= 100 ? limit : null;
+}
+
 export function generateShortCode(random = crypto.getRandomValues(
   new Uint32Array(1),
 )[0]): string {
@@ -541,6 +548,41 @@ async function videoStats(row: VideoRow, env: Env): Promise<Response> {
   });
 }
 
+async function recentVideoStats(url: URL, env: Env): Promise<Response> {
+  const limit = parseRecentStatsLimit(url.searchParams.get("limit"));
+  if (limit === null) return json({ error: "invalid_limit" }, 400);
+
+  const videos = await env.DB.prepare(
+    `SELECT
+      v.short_code,
+      v.status,
+      v.created_at,
+      COALESCE(SUM(s.page_views), 0) AS page_views,
+      COALESCE(SUM(s.play_starts), 0) AS play_starts,
+      COALESCE(SUM(s.play_completions), 0) AS play_completions
+    FROM videos v
+    LEFT JOIN video_access_stats_daily s ON s.video_id = v.id
+    GROUP BY v.id, v.short_code, v.status, v.created_at
+    ORDER BY v.created_at DESC
+    LIMIT ?`,
+  ).bind(limit).all<{
+    short_code: string;
+    status: VideoStatus;
+    created_at: string;
+    page_views: number;
+    play_starts: number;
+    play_completions: number;
+  }>();
+
+  return json({
+    limit,
+    videos: videos.results.map((video) => ({
+      ...video,
+      short_code: formatShortCode(video.short_code),
+    })),
+  });
+}
+
 async function media(request: Request, code: string, env: Env) {
   const row = await rowForCode(code, env);
   if (!row || row.status !== "available" ||
@@ -602,6 +644,9 @@ async function media(request: Request, code: string, env: Env) {
 
 async function api(request: Request, url: URL, env: Env): Promise<Response> {
   if (!isAuthorized(request, env)) return json({ error: "unauthorized" }, 401);
+  if (request.method === "GET" && url.pathname === "/api/stats/recent") {
+    return recentVideoStats(url, env);
+  }
   if (request.method === "GET" && url.pathname === "/api/stats") {
     const code = normalizeShortCode(url.searchParams.get("code") ?? "");
     if (!code) return json({ error: "invalid_code" }, 400);

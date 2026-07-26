@@ -82,6 +82,10 @@ if grep -Eqi 'ip|user.?agent|city|latitude|longitude' <<<"${STATS}"; then
     echo "A API de estatísticas expôs um campo intrusivo." >&2
     exit 1
 fi
+RECENT_STATS="$("${CURL[@]}" -fsS -H "${AUTH}" \
+    "${BASE_URL}/api/stats/recent?limit=20")"
+jq -e --arg code "${SHORT_CODE}" \
+    '.videos | any(.short_code == $code)' <<<"${RECENT_STATS}" >/dev/null
 RANGE_HEADERS="${TEMP_DIR}/range.headers"
 "${CURL[@]}" -fsS -D "${RANGE_HEADERS}" -H "Range: bytes=0-255" \
     "${BASE_URL}/media/${SHORT_CODE}" >/dev/null
