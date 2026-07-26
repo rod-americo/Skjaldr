@@ -159,7 +159,7 @@ final class CompositionWorkspace: ObservableObject {
         keyCode: UInt32(kVK_F13),
         modifiers: GlobalHotKeyController.commandModifiers
     ) { [weak self] in
-        self?.requestNewWindowFromGlobalShortcut()
+        self?.openNewWindow()
     }
 
     init(videoStore: VideoRecorderStore) {
@@ -253,6 +253,9 @@ final class CompositionWorkspace: ObservableObject {
         else {
             return
         }
+        let nextVisibleWindow = records.values
+            .compactMap(\.window)
+            .first(where: { $0 !== window && $0.isVisible })
         for tab in controller.tabs {
             tab.store.monitor.stop()
         }
@@ -260,6 +263,13 @@ final class CompositionWorkspace: ObservableObject {
         if activeController === controller {
             activeController = nil
             activeStore = nil
+        }
+        if let nextVisibleWindow {
+            nextVisibleWindow.makeKeyAndOrderFront(nil)
+        } else {
+            DispatchQueue.main.async {
+                NSApp.hide(nil)
+            }
         }
     }
 
@@ -303,14 +313,16 @@ final class CompositionWorkspace: ObservableObject {
 
     func showExistingTabOrRequestNew() {
         if let window = records.values.compactMap(\.window).first {
+            NSApp.unhide(nil)
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         } else {
-            requestNewWindowFromGlobalShortcut()
+            openNewWindow()
         }
     }
 
-    private func requestNewWindowFromGlobalShortcut() {
+    func openNewWindow() {
+        NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
         guard let item = findMenuItem(
             titled: "Nova janela de composição",

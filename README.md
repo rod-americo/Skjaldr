@@ -210,7 +210,7 @@ Atalhos principais:
 | `⌘N` | nova janela de composição |
 | `⌘T` | nova aba de composição na janela ativa |
 | `⌘F13` | abrir globalmente uma nova janela com composição vazia |
-| `⌘W` | fechar somente a aba de composição atual |
+| `⌘W` | fechar a aba atual; na última, ocultar o Skjaldr |
 | `⌘V` | adicionar imagem do clipboard |
 | `⌘C` | copiar sempre a composição final |
 | `⌘E` | salvar a composição |
