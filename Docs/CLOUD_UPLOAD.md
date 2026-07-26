@@ -78,8 +78,8 @@ O Worker registra somente totais diários agregados por vídeo:
 - classe ampla do dispositivo: `mobile`, `tablet` ou `desktop`.
 
 Não são persistidos IP, `User-Agent`, cidade, coordenadas, sistema operacional,
-cookie ou identificador de visitante. A página informa essa coleta em uma linha
-discreta. Os registros são removidos após 30 dias por padrão.
+cookie ou identificador de visitante. Os registros são removidos após 30 dias
+por padrão.
 
 A consulta exige o token administrativo:
 
