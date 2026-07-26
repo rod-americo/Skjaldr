@@ -28,7 +28,20 @@ enum VideoUploadPreparation {
             let asset = AVURLAsset(url: url)
             let playable = try await asset.load(.isPlayable)
             let duration = try await asset.load(.duration).seconds
-            guard playable, duration.isFinite, duration > 0 else {
+            guard let videoTrack = try await asset
+                .loadTracks(withMediaType: .video)
+                .first
+            else {
+                throw VideoUploadError.invalidVideo
+            }
+            let videoDuration = try await videoTrack.load(.timeRange)
+                .duration.seconds
+            guard playable,
+                  ScreenCaptureRecorder.recordingDurationsAreConsistent(
+                    assetDuration: duration,
+                    videoDuration: videoDuration
+                  )
+            else {
                 throw VideoUploadError.invalidVideo
             }
 

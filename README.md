@@ -69,6 +69,7 @@ Implementado:
 - cancelamento sem salvar nem enviar pelo atalho global `⌥⌘⇧9`;
 - suspensão do monitor de imagens e da fila de upload durante a captura;
 - recuperação de MP4 temporário e timeout de finalização;
+- validação da duração da trilha de vídeo antes de salvar ou enviar;
 - finalização segura ao encerrar o aplicativo durante uma gravação.
 - upload assíncrono para Cloudflare R2 depois do salvamento local;
 - derivado H.264 a 6 Mb/s e `faststart` para upload, preservando o original;

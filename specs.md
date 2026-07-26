@@ -364,6 +364,9 @@ O MVP estará pronto quando:
 20. o arquivo enviado ser uma cópia H.264 otimizada para reprodução móvel,
     com bitrate-alvo de 6 Mb/s e início progressivo, preservando integralmente
     o MP4 local original.
+21. a duração da trilha de vídeo acompanhar a duração total da gravação; uma
+    trilha ausente ou incompleta deve impedir salvamento, upload e divulgação
+    de URL.
 
 ## Estratégia de implementação
 

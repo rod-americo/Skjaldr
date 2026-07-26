@@ -254,6 +254,22 @@ struct VideoCaptureTests {
         #expect(VideoUploadOptimizer.targetVideoBitRate == 6_000_000)
     }
 
+    @Test("Gravação rejeita trilha de vídeo muito menor que o áudio")
+    func recordingRejectsIncompleteVideoTrack() {
+        #expect(
+            ScreenCaptureRecorder.recordingDurationsAreConsistent(
+                assetDuration: 107.046,
+                videoDuration: 0.116
+            ) == false
+        )
+        #expect(
+            ScreenCaptureRecorder.recordingDurationsAreConsistent(
+                assetDuration: 107.046,
+                videoDuration: 106.9
+            )
+        )
+    }
+
     private func withTemporaryDirectory(
         _ operation: (URL) throws -> Void
     ) throws {

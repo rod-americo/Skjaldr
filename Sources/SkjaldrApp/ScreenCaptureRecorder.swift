@@ -76,8 +76,7 @@ final class ScreenCaptureRecorder: NSObject {
         configuration.height = Int(preset.outputSize.height)
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: 30)
         configuration.queueDepth = 3
-        configuration.pixelFormat =
-            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        configuration.pixelFormat = kCVPixelFormatType_32BGRA
         configuration.scalesToFit = true
         configuration.preservesAspectRatio = true
         configuration.destinationRect = CGRect(origin: .zero, size: preset.outputSize)
@@ -177,6 +176,11 @@ final class ScreenCaptureRecorder: NSObject {
             else {
                 throw VideoRecordingError.recordingFailed(
                     "o arquivo temporário não foi finalizado"
+                )
+            }
+            guard await Self.isPlayableRecording(temporaryURL) else {
+                throw VideoRecordingError.recordingFailed(
+                    "a trilha de vídeo ficou incompleta"
                 )
             }
             try FileManager.default.moveItem(
@@ -360,10 +364,32 @@ final class ScreenCaptureRecorder: NSObject {
         do {
             let playable = try await asset.load(.isPlayable)
             let duration = try await asset.load(.duration).seconds
-            return playable && duration.isFinite && duration > 0
+            guard let videoTrack = try await asset
+                .loadTracks(withMediaType: .video)
+                .first
+            else {
+                return false
+            }
+            let videoDuration = try await videoTrack.load(.timeRange)
+                .duration.seconds
+            return playable &&
+                recordingDurationsAreConsistent(
+                    assetDuration: duration,
+                    videoDuration: videoDuration
+                )
         } catch {
             return false
         }
+    }
+
+    nonisolated static func recordingDurationsAreConsistent(
+        assetDuration: Double,
+        videoDuration: Double
+    ) -> Bool {
+        assetDuration.isFinite &&
+            videoDuration.isFinite &&
+            assetDuration > 0 &&
+            videoDuration >= max(0.05, assetDuration * 0.9)
     }
 }
 

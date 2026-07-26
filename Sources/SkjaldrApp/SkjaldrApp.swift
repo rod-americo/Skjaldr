@@ -160,6 +160,15 @@ struct SkjaldrApp: App {
                     Image(systemName: "record.circle.fill")
                 } else if videoStore.phase == .finishing {
                     Image(systemName: "hourglass.circle")
+                } else if uploadStore.phase == .completed {
+                    Image(systemName: "checkmark.circle.fill")
+                } else if uploadStore.phase == .failed {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                } else if uploadStore.phase == .preparing ||
+                            uploadStore.phase == .uploading ||
+                            uploadStore.phase == .confirming
+                {
+                    Image(systemName: "icloud.and.arrow.up")
                 } else {
                     Image("MenuBarIcon")
                 }
