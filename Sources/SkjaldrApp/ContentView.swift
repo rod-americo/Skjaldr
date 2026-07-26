@@ -20,6 +20,7 @@ enum ImageDeletionShortcut {
 struct ContentView: View {
     @EnvironmentObject private var store: ProjectStore
     @EnvironmentObject private var videoStore: VideoRecorderStore
+    @EnvironmentObject private var uploadStore: VideoUploadStore
     @State private var isDropTarget = false
     @State private var previewScale: CGFloat = 0.82
     @State private var deleteKeyMonitor: Any?
@@ -53,6 +54,13 @@ struct ContentView: View {
             if videoStore.phase == .recording || videoStore.phase == .finishing {
                 recordingIndicator
                     .padding(.top, 11)
+                    .padding(.trailing, 14)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if uploadStore.phase != .idle {
+                uploadIndicator
+                    .padding(.bottom, 14)
                     .padding(.trailing, 14)
             }
         }
@@ -146,6 +154,65 @@ struct ContentView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.regularMaterial, in: Capsule())
+        .shadow(radius: 8, y: 3)
+    }
+
+    private var uploadIndicator: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(
+                    systemName: uploadStore.phase == .completed
+                        ? "checkmark.circle.fill"
+                        : uploadStore.phase == .failed
+                            ? "exclamationmark.triangle.fill"
+                            : "icloud.and.arrow.up"
+                )
+                .foregroundStyle(
+                    uploadStore.phase == .completed
+                        ? .green
+                        : uploadStore.phase == .failed ? .orange : .blue
+                )
+                Text(uploadStore.phase.title)
+                    .font(.callout.weight(.semibold))
+            }
+
+            if uploadStore.phase == .uploading {
+                ProgressView(value: uploadStore.progress)
+                    .frame(width: 260)
+                Text(
+                    "\(ByteCountFormatter.string(fromByteCount: uploadStore.sentBytes, countStyle: .file)) de "
+                        + ByteCountFormatter.string(
+                            fromByteCount: uploadStore.totalBytes,
+                            countStyle: .file
+                        )
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            if let url = uploadStore.publicURL {
+                Text(url.absoluteString)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .lineLimit(1)
+                HStack {
+                    Button("Copiar link", action: uploadStore.copyLink)
+                    Button("Abrir", action: uploadStore.openLink)
+                }
+                .controlSize(.small)
+            }
+
+            if let error = uploadStore.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 280, alignment: .leading)
+                Button("Tentar novamente", action: uploadStore.retry)
+                    .controlSize(.small)
+            }
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .shadow(radius: 8, y: 3)
     }
 

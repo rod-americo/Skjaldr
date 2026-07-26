@@ -2,8 +2,8 @@
 
 ## Princípios
 
-- processamento integralmente local;
-- nenhuma chamada de rede;
+- processamento de imagens integralmente local;
+- upload de vídeo somente para a infraestrutura configurada;
 - nenhuma telemetria;
 - nenhuma conta;
 - nenhuma sincronização;
@@ -21,6 +21,9 @@ O Skjaldr mantém somente:
 - preferências de vídeo: orientação, fonte de áudio, identificador do
   microfone, pasta de saída e região normalizada;
 - MP4s gravados na pasta escolhida pelo usuário.
+- fila local de uploads com caminho do MP4, UUID e idempotency key;
+- no D1: IDs técnicos, código curto, object key, tamanho, duração, checksum,
+  estado e timestamps.
 
 O estado atual fica em `~/Library/Application Support/Skjaldr`. A versão MVP preserva a sessão até o usuário iniciar outra composição ou remover manualmente os dados da aplicação. Política de expiração configurável está no roadmap.
 
@@ -45,12 +48,20 @@ microfone`. O Skjaldr não mantém essas permissões; elas são administradas pe
 macOS em Privacidade e Segurança. Erros de tela e microfone são diferenciados,
 e cada um abre diretamente o painel correspondente dos Ajustes do Sistema.
 
-O áudio do próprio Skjaldr é excluído da captura do sistema. Nenhuma imagem ou
-amostra de áudio é enviada a outro processo pelo aplicativo.
+O áudio do próprio Skjaldr é excluído da captura do sistema. Depois da
+finalização local, o MP4 pode ser enviado ao R2 privado. O nome local, caminho,
+paciente, exame e hospital não são transmitidos como metadados.
 
 O bundle assinado declara somente o entitlement público de entrada de áudio,
 necessário para o microfone sob Hardened Runtime. Não usa entitlement privado
 para contornar o TCC nem para capturar a tela sem consentimento.
+
+## Links públicos
+
+O código de seis dígitos é um identificador por obscuridade, não autenticação.
+O Worker aplica rate limiting, impede indexação, mantém o bucket privado e
+permite revogação/expiração. O conteúdo do vídeo pode conter informação
+sensível e o link deve ser tratado de acordo com a política institucional.
 
 ## Logs
 

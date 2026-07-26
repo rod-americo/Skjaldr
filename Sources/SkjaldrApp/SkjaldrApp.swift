@@ -6,12 +6,18 @@ struct SkjaldrApp: App {
     private var appDelegate
     @StateObject private var store: ProjectStore
     @StateObject private var videoStore: VideoRecorderStore
+    @StateObject private var uploadStore: VideoUploadStore
 
     init() {
         let store = ProjectStore()
         let videoStore = VideoRecorderStore()
+        let uploadStore = VideoUploadStore()
+        videoStore.onRecordingSaved = { [weak uploadStore] url in
+            uploadStore?.enqueue(url)
+        }
         _store = StateObject(wrappedValue: store)
         _videoStore = StateObject(wrappedValue: videoStore)
+        _uploadStore = StateObject(wrappedValue: uploadStore)
         appDelegate.videoStore = videoStore
     }
 
@@ -20,6 +26,7 @@ struct SkjaldrApp: App {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(videoStore)
+                .environmentObject(uploadStore)
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 1240, height: 780)
@@ -112,6 +119,7 @@ struct SkjaldrApp: App {
             SettingsView()
                 .environmentObject(store)
                 .environmentObject(videoStore)
+                .environmentObject(uploadStore)
         }
     }
 
@@ -146,6 +154,7 @@ private final class SkjaldrApplicationDelegate: NSObject, NSApplicationDelegate 
 private struct SettingsView: View {
     @EnvironmentObject private var store: ProjectStore
     @EnvironmentObject private var videoStore: VideoRecorderStore
+    @EnvironmentObject private var uploadStore: VideoUploadStore
 
     var body: some View {
         Form {
@@ -171,6 +180,10 @@ private struct SettingsView: View {
                         .lineLimit(1)
                 }
                 Button("Escolher pasta de vídeos…", action: videoStore.chooseOutputDirectory)
+                Toggle(
+                    "Remover arquivo local após upload confirmado",
+                    isOn: $uploadStore.deleteLocalAfterUpload
+                )
             }
         }
         .formStyle(.grouped)

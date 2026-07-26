@@ -10,6 +10,12 @@ fi
 
 cd "${RAIZ_PROJETO}"
 swift test
+(
+    cd "${RAIZ_PROJETO}/Cloudflare/worker"
+    npm ci
+    npm run check
+    npm test
+)
 "${RAIZ_PROJETO}/Scripts/compilar-app.sh"
 
 echo "Verificação concluída."

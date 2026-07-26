@@ -7,6 +7,7 @@ import OSLog
 
 @MainActor
 final class VideoRecorderStore: ObservableObject {
+    var onRecordingSaved: ((URL) -> Void)?
     @Published var preset: PhoneVideoPreset {
         didSet { preferences.preset = preset }
     }
@@ -270,6 +271,7 @@ final class VideoRecorderStore: ObservableObject {
             lastRecordingURL = url
             resetToIdle()
             showToast("Vídeo salvo: \(url.lastPathComponent)")
+            onRecordingSaved?(url)
         } catch {
             resetToIdle()
             showError(error)

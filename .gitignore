@@ -4,3 +4,9 @@
 DerivedData/
 dist/
 *.xcuserstate
+.env
+.dev.vars
+node_modules/
+.wrangler/
+wrangler.generated.jsonc
+Cloudflare/worker/coverage/

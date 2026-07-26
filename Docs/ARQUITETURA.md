@@ -24,6 +24,10 @@ VideoRecorderStore ── VideoRegionSelection
       ├── ScreenCaptureRecorder ── ScreenCaptureKit
       ├── VideoCapturePreferences ─ UserDefaults
       └── GlobalHotKeyController ── ⌘⇧9
+
+arquivo final ──> VideoUploadStore ──> Worker / D1
+                       │                    │
+                       └── PUT assinado ───> R2 privado
 ```
 
 ## Componentes
@@ -119,6 +123,10 @@ A coordenação de interface e sessão ocorre no ator principal. A renderizaçã
 ScreenCaptureKit executa a captura fora da interface e notifica o controlador
 por delegates. As transições que alteram a UI retornam ao ator principal.
 Durante a finalização, novos inícios permanecem desabilitados.
+
+O upload começa somente depois do rename atômico do MP4 e roda em uma fila
+separada. Hash, validação e rede não prolongam a fase `finishing`; outra captura
+pode começar enquanto o vídeo anterior é enviado.
 
 ## Falhas e recuperação
 

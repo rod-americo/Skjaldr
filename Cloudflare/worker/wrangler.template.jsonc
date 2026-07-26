@@ -1,0 +1,58 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "skjaldr-video",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-25",
+  "workers_dev": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "routes": [
+    {
+      "pattern": "odin.med.br",
+      "custom_domain": true
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "VIDEOS",
+      "bucket_name": "__R2_BUCKET__"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "skjaldr-videos",
+      "database_id": "__D1_DATABASE_ID__",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "PUBLIC_RATE_LIMITER",
+      "namespace_id": "27072501",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
+  "triggers": {
+    "crons": ["17 3 * * *"]
+  },
+  "vars": {
+    "PUBLIC_BASE_URL": "__PUBLIC_BASE_URL__",
+    "CLOUDFLARE_ACCOUNT_ID": "__ACCOUNT_ID__",
+    "R2_BUCKET_NAME": "__R2_BUCKET__",
+    "MAX_VIDEO_SIZE_BYTES": "1073741824",
+    "VIDEO_RETENTION_DAYS": "0"
+  },
+  "secrets": {
+    "required": [
+      "APP_API_TOKEN",
+      "R2_ACCESS_KEY_ID",
+      "R2_SECRET_ACCESS_KEY"
+    ]
+  }
+}

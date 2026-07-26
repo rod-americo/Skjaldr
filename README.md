@@ -1,7 +1,7 @@
 # Skjaldr
 
-Ferramenta nativa e local para composição de imagens e gravação de tela no
-macOS.
+Ferramenta nativa para composição local de imagens, gravação de tela e
+publicação opcional de vídeos por link curto.
 
 O Skjaldr transforma várias capturas em uma única imagem rasterizada, pronta para copiar e colar em editores de laudo HTML ou RTF. O fluxo principal é deliberadamente curto:
 
@@ -9,7 +9,9 @@ O Skjaldr transforma várias capturas em uma única imagem rasterizada, pronta p
 captura → captura → captura → ⌘C → cola no laudo
 ```
 
-Não há nuvem, conta, telemetria, OCR remoto nem etapa obrigatória de salvamento.
+Imagens continuam integralmente locais. Vídeos são sempre preservados
+localmente e, quando a integração está configurada, enviados ao bucket R2
+privado após a finalização.
 
 O módulo de vídeo grava uma região com proporção de telefone, pronta para
 demonstrações e compartilhamento:
@@ -63,6 +65,10 @@ Implementado:
 - salvamento automático na pasta configurada;
 - início e parada pelo atalho global `⌘⇧9`;
 - finalização segura ao encerrar o aplicativo durante uma gravação.
+- upload assíncrono para Cloudflare R2 depois do salvamento local;
+- URL curta `https://odin.med.br/123-456`, copiada automaticamente;
+- retry persistente e progresso sem bloquear novas capturas;
+- Worker, D1, R2 privado, Range HTTP, revogação e retenção configurável.
 
 ## Requisitos
 
@@ -147,6 +153,44 @@ Para gravar vídeo:
 6. Pressione `⌘⇧9` ou use **Parar** para finalizar.
 7. O MP4 será salvo automaticamente como
    `yyyyMMdd_HHmm_video-laudo.mp4`, sem diálogo ou preview.
+8. Com a nuvem configurada, o Skjaldr envia o arquivo, confirma sua integridade
+   e copia o link curto. Falhas de rede nunca removem o arquivo local.
+
+## Cloudflare e links de vídeo
+
+Pré-requisitos:
+
+- Node.js e npm;
+- `jq`, `curl`, `openssl`, `ffmpeg` e `dig`;
+- credencial bootstrap em `~/.local/share/cloudflare-r2.env`;
+- zona `odin.med.br` na mesma conta do bucket privado `skjaldr`.
+
+Provisionamento idempotente:
+
+```bash
+./Scripts/bootstrap-cloudflare.sh
+./Scripts/setup-cloudflare.sh
+./Scripts/test-cloudflare-e2e.sh
+```
+
+Deploys posteriores:
+
+```bash
+./Scripts/deploy-cloudflare.sh
+```
+
+O bootstrap cria um Account API Token dedicado com acesso somente à conta
+necessária e à zona `odin.med.br`. O segredo operacional do app fica em
+`~/Library/Application Support/Skjaldr/cloud-upload.json`, com modo `0600`.
+Nenhum segredo é versionado.
+
+O bucket não usa `r2.dev`, domínio público ou CORS. O app envia por PUT
+pré-assinado; a leitura pública passa exclusivamente pelo Worker, que resolve o
+código no D1 e transmite o objeto privado com suporte a Range.
+
+Retenção é indefinida por padrão (`VIDEO_RETENTION_DAYS=0`). Consulte
+[Operação Cloudflare](Docs/CLOUD_UPLOAD.md) para variáveis, permissões, rotação,
+revogação, exclusão, backup, recuperação e troubleshooting.
 
 Atalhos principais:
 
@@ -167,8 +211,7 @@ Atalhos principais:
 
 ## Privacidade
 
-Todo o processamento ocorre localmente. O código não contém cliente HTTP,
-analytics ou integração com serviços externos. As fontes copiadas para a sessão
+O processamento de imagens ocorre localmente e não há analytics. As fontes copiadas para a sessão
 ficam em:
 
 ```text
@@ -178,8 +221,9 @@ ficam em:
 A saída é recodificada e não herda EXIF, GPS, nomes, caminhos, comentários ou miniaturas das fontes. Logs da aplicação não registram nomes de arquivos nem conteúdo visual.
 
 Vídeos e áudio são capturados somente durante uma gravação iniciada pelo
-usuário. O arquivo temporário fica na própria pasta de saída e é renomeado
-apenas depois que o MP4 é finalizado.
+usuário. O MP4 é finalizado localmente antes do upload opcional. A tabela
+remota não recebe nomes de paciente, exame, hospital ou caminho local. O código
+de seis dígitos é um identificador por obscuridade, não autenticação.
 
 Consulte [PRIVACIDADE.md](Docs/PRIVACIDADE.md) para o modelo de ameaça e a lista de verificações.
 
