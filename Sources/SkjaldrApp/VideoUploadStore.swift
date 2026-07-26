@@ -48,8 +48,20 @@ final class VideoUploadStore: ObservableObject {
                from: data
            )
         {
-            queue = saved.filter {
-                FileManager.default.fileExists(atPath: $0.filePath)
+            queue = saved.compactMap {
+                guard FileManager.default.fileExists(atPath: $0.filePath)
+                else {
+                    return nil
+                }
+                var job = $0
+                if let optimizedFilePath = job.optimizedFilePath,
+                   !FileManager.default.fileExists(
+                    atPath: optimizedFilePath
+                   )
+                {
+                    job.optimizedFilePath = nil
+                }
+                return job
             }
         }
         startWorkerIfNeeded()
@@ -126,6 +138,11 @@ final class VideoUploadStore: ObservableObject {
                 try await uploadFirst()
                 let completed = queue.removeFirst()
                 persistQueue()
+                if let optimizedFilePath = completed.optimizedFilePath {
+                    try? FileManager.default.removeItem(
+                        atPath: optimizedFilePath
+                    )
+                }
                 if deleteLocalAfterUpload {
                     try? FileManager.default.removeItem(at: completed.fileURL)
                 }
@@ -166,7 +183,22 @@ final class VideoUploadStore: ObservableObject {
         errorMessage = nil
         publicURL = nil
         progress = 0
-        let prepared = try await VideoUploadPreparation.prepare(job.fileURL)
+        if job.optimizedFilePath == nil {
+            let cacheDirectory = queueURL.deletingLastPathComponent()
+                .appendingPathComponent("video-upload-cache")
+            let optimizedURL = cacheDirectory
+                .appendingPathComponent("\(job.id.uuidString).mp4")
+            _ = try await VideoUploadOptimizer.optimize(
+                sourceURL: job.fileURL,
+                destinationURL: optimizedURL
+            )
+            job.optimizedFilePath = optimizedURL.path
+            queue[0] = job
+            persistQueue()
+        }
+        let prepared = try await VideoUploadPreparation.prepare(
+            job.uploadFileURL
+        )
         totalBytes = prepared.sizeBytes
 
         let client = VideoUploadAPIClient(configuration: configuration)

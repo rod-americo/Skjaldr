@@ -226,6 +226,34 @@ struct VideoCaptureTests {
         #expect(await ScreenCaptureRecorder.isPlayableRecording(output))
     }
 
+    @Test("Otimização cria MP4 de upload e preserva o original")
+    func uploadOptimizationPreservesOriginal() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "SkjaldrOptimizationTests-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let original = directory.appendingPathComponent("original.mp4")
+        let optimized = directory.appendingPathComponent("optimized.mp4")
+        try await makeSyntheticVideo(at: original)
+
+        let result = try await VideoUploadOptimizer.optimize(
+            sourceURL: original,
+            destinationURL: optimized
+        )
+
+        #expect(result == optimized)
+        #expect(FileManager.default.fileExists(atPath: original.path))
+        #expect(await ScreenCaptureRecorder.isPlayableRecording(optimized))
+        #expect(VideoUploadOptimizer.targetVideoBitRate == 6_000_000)
+    }
+
     private func withTemporaryDirectory(
         _ operation: (URL) throws -> Void
     ) throws {

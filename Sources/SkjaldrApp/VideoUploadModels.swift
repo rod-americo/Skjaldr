@@ -60,15 +60,20 @@ struct PendingVideoUpload: Codable, Identifiable, Equatable {
     let filePath: String
     let idempotencyKey: String
     var attempts: Int
+    var optimizedFilePath: String?
 
     init(fileURL: URL) {
         id = UUID()
         filePath = fileURL.path
         idempotencyKey = UUID().uuidString.lowercased()
         attempts = 0
+        optimizedFilePath = nil
     }
 
     var fileURL: URL { URL(fileURLWithPath: filePath) }
+    var uploadFileURL: URL {
+        optimizedFilePath.map(URL.init(fileURLWithPath:)) ?? fileURL
+    }
 }
 
 struct CreateVideoRequest: Encodable {
@@ -106,6 +111,7 @@ enum VideoUploadError: LocalizedError {
     case invalidFile
     case fileTooLarge
     case invalidVideo
+    case videoOptimizationFailed
     case invalidResponse
     case remote(String)
     case clipboard
@@ -124,6 +130,8 @@ enum VideoUploadError: LocalizedError {
             "O vídeo excede o limite de 1 GiB."
         case .invalidVideo:
             "O arquivo MP4 não pôde ser validado para reprodução."
+        case .videoOptimizationFailed:
+            "Não foi possível preparar uma cópia otimizada do vídeo."
         case .invalidResponse:
             "O serviço de upload retornou uma resposta inválida."
         case let .remote(message):

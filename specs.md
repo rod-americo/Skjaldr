@@ -361,6 +361,9 @@ O MVP estará pronto quando:
 19. a conclusão do upload em segundo plano emitir uma notificação nativa do
     macOS, sem ativar o aplicativo, somente depois de o link estar disponível
     e copiado.
+20. o arquivo enviado ser uma cópia H.264 otimizada para reprodução móvel,
+    com bitrate-alvo de 6 Mb/s e início progressivo, preservando integralmente
+    o MP4 local original.
 
 ## Estratégia de implementação
 

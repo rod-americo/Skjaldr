@@ -71,6 +71,7 @@ Implementado:
 - recuperação de MP4 temporário e timeout de finalização;
 - finalização segura ao encerrar o aplicativo durante uma gravação.
 - upload assíncrono para Cloudflare R2 depois do salvamento local;
+- derivado H.264 a 6 Mb/s e `faststart` para upload, preservando o original;
 - URL curta `https://odin.med.br/123-456`, copiada automaticamente;
 - retry persistente e progresso sem bloquear novas capturas;
 - Worker, D1, R2 privado, Range HTTP, revogação e retenção configurável.

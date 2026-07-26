@@ -115,6 +115,12 @@ idempotency key e é retomada na próxima abertura. O botão **Tentar novamente*
 reutiliza registro, código e objeto. Registros pendentes por mais de 24 horas
 são marcados como falhos pelo Cron.
 
+Antes de criar o recurso remoto, o aplicativo gera em Application Support um
+derivado temporário H.264 com bitrate-alvo de 6 Mb/s e otimização para início
+progressivo. O MP4 original permanece na pasta escolhida e nunca é substituído.
+Retries reutilizam o mesmo derivado e a mesma chave de idempotência. Depois da
+confirmação do upload, somente o derivado temporário é removido.
+
 Para observar:
 
 ```bash

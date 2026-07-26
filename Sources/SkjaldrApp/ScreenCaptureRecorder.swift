@@ -76,7 +76,8 @@ final class ScreenCaptureRecorder: NSObject {
         configuration.height = Int(preset.outputSize.height)
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: 30)
         configuration.queueDepth = 3
-        configuration.pixelFormat = kCVPixelFormatType_32BGRA
+        configuration.pixelFormat =
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         configuration.scalesToFit = true
         configuration.preservesAspectRatio = true
         configuration.destinationRect = CGRect(origin: .zero, size: preset.outputSize)
