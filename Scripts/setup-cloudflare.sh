@@ -5,6 +5,7 @@ ROOT="${0:A:h:h}"
 WORKER="${ROOT}/Cloudflare/worker"
 PROVISION_ENV="${SKJALDR_CLOUDFLARE_ENV:-${HOME}/.local/share/skjaldr-cloudflare.env}"
 R2_ENV="${CLOUDFLARE_R2_ENV:-${HOME}/.local/share/cloudflare-r2.env}"
+SIGNATURE_ENV="${SKJALDR_SIGNATURE_ENV:-${HOME}/.local/share/skjaldr-signature.env}"
 APP_CONFIG="${HOME}/Library/Application Support/Skjaldr/cloud-upload.json"
 API="https://api.cloudflare.com/client/v4"
 
@@ -19,7 +20,9 @@ done
 set -a
 source "${R2_ENV}"
 source "${PROVISION_ENV}"
+source "${SIGNATURE_ENV}"
 set +a
+: "${PROFESSIONAL_SIGNATURE:?Defina PROFESSIONAL_SIGNATURE em ${SIGNATURE_ENV}}"
 AUTH="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
 
 curl -fsS -H "${AUTH}" \
@@ -126,7 +129,9 @@ jq -n \
     --arg app "${APP_TOKEN}" \
     --arg access "${AWS_ACCESS_KEY_ID}" \
     --arg secret "${AWS_SECRET_ACCESS_KEY}" \
-    '{APP_API_TOKEN:$app,R2_ACCESS_KEY_ID:$access,R2_SECRET_ACCESS_KEY:$secret}' \
+    --arg signature "${PROFESSIONAL_SIGNATURE}" \
+    '{APP_API_TOKEN:$app,R2_ACCESS_KEY_ID:$access,R2_SECRET_ACCESS_KEY:$secret,
+      PROFESSIONAL_SIGNATURE:$signature}' \
     >"${SECRETS_TEMP}"
 
 export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID

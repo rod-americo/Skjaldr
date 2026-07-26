@@ -3,6 +3,7 @@ import {
   formatShortCode,
   generateShortCode,
   normalizeShortCode,
+  page,
 } from "../src/index";
 
 describe("short codes", () => {
@@ -22,5 +23,29 @@ describe("short codes", () => {
     for (const value of [0, 1, 899999, 900000, 0xffffffff]) {
       expect(generateShortCode(value)).toMatch(/^[1-9][0-9]{5}$/);
     }
+  });
+});
+
+describe("public video page", () => {
+  it("prioritizes the player and shows the medical signature without a heading", () => {
+    const html = page(
+      "Vídeo do laudo",
+      "Aviso do laudo.",
+      "123456",
+      "Assinatura profissional",
+    );
+
+    expect(html).toContain('src="/media/123-456"');
+    expect(html).not.toContain("<h1>Vídeo complementar</h1>");
+    expect(html).not.toContain("<h1>Vídeo do laudo</h1>");
+    expect(html).toContain("Assinatura profissional");
+    expect(html).toContain("width:100%");
+  });
+
+  it("escapes the signature supplied by configuration", () => {
+    const html = page("Vídeo", "Aviso.", "123456", "<script>alert(1)</script>");
+
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(html).not.toContain("<script>alert(1)</script>");
   });
 });

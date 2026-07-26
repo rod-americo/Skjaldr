@@ -21,7 +21,10 @@ O token bootstrap fica em `~/.local/share/cloudflare-r2.env`. O comando
 - zona `odin.med.br`: Zone Read, DNS Read/Write e Workers Routes Read/Write.
 
 O token dedicado fica em `~/.local/share/skjaldr-cloudflare.env`, modo `0600`.
-As credenciais S3 do R2 e `APP_API_TOKEN` são instaladas como Worker Secrets.
+As credenciais S3 do R2, `APP_API_TOKEN` e `PROFESSIONAL_SIGNATURE` são
+instaladas como Worker Secrets. A assinatura exibida na página pública não fica
+no código nem no histórico Git. Seu valor local fica em
+`~/.local/share/skjaldr-signature.env`, com modo `0600`.
 
 ## Provisionamento e deploy
 
@@ -34,6 +37,27 @@ As credenciais S3 do R2 e `APP_API_TOKEN` são instaladas como Worker Secrets.
 O setup recusa uma origem A/CNAME existente, outro Worker na raiz, `r2.dev`
 habilitado ou domínio público no bucket. MX e TXT são preservados. Migrations
 D1 e deploys são repetíveis.
+
+## Página pública
+
+O HTML, CSS e JavaScript do player são gerados pela função `page` em
+`Cloudflare/worker/src/index.ts`. A página não é um site separado e não possui
+outro repositório ou pipeline.
+
+Depois de alterar a interface pública:
+
+```bash
+cd Cloudflare/worker
+npm run check
+npm test
+cd ../..
+./Scripts/deploy-cloudflare.sh
+./Scripts/test-cloudflare-e2e.sh
+```
+
+O deploy atualiza o Worker `skjaldr-video` no Custom Domain já associado, sem
+trocar DNS, D1, bucket ou credenciais. O E2E cria um vídeo sintético, valida a
+página, Range, revogação e limpeza.
 
 ## Variáveis
 

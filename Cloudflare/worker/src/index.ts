@@ -7,6 +7,7 @@ export interface Env {
   APP_API_TOKEN: string;
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
+  PROFESSIONAL_SIGNATURE: string;
   CLOUDFLARE_ACCOUNT_ID: string;
   R2_BUCKET_NAME: string;
   PUBLIC_BASE_URL: string;
@@ -353,23 +354,48 @@ function unavailablePage(): Response {
   );
 }
 
-function page(title: string, message: string, code: string | null): string {
+function escapeHTML(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+}
+
+export function page(
+  title: string,
+  message: string,
+  code: string | null,
+  professionalSignature = "",
+): string {
   const video = code
     ? `<div class="player"><video id="video" controls playsinline preload="metadata"
          src="/media/${formatShortCode(code)}"></video>
        <div id="loading">Carregando vídeo…</div>
        <div id="error" hidden>Não foi possível reproduzir este vídeo.</div></div>`
     : "";
+  const heading = code ? "" : `<h1>${title}</h1>`;
+  const signature = code && professionalSignature
+    ? `<p class="signature">${escapeHTML(professionalSignature)}</p>`
+    : "";
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive"><title>${title}</title>
-  <style>body{margin:0;background:#101216;color:#f5f6f8;font:16px -apple-system,
-  BlinkMacSystemFont,sans-serif;display:grid;min-height:100vh;place-items:center}
-  main{width:min(920px,92vw);text-align:center}.player{position:relative}
-  video{background:#000;border-radius:16px;box-shadow:0 16px 50px #0008;
-  max-height:76vh;width:100%}p{color:#b7bdc8;line-height:1.5}
-  #loading,#error{margin:12px}</style></head><body><main><h1>${title}</h1>
-  ${video}<p>${message}</p></main><script>const v=document.getElementById("video");
+  <style>*{box-sizing:border-box}body{margin:0;background:#101216;color:#f5f6f8;
+  font:16px -apple-system,BlinkMacSystemFont,sans-serif;min-height:100dvh}
+  main{width:100%;padding:2px;text-align:center}.player{position:relative}
+  video{display:block;width:100%;height:auto;background:#000;border-radius:8px;
+  box-shadow:0 10px 32px #0008}.copy{margin:7px 8px 4px}
+  p{margin:0;color:#b7bdc8;line-height:1.35}.signature{margin-top:3px;
+  color:#858c98;font-size:12px;line-height:1.3}#loading,#error{margin:8px}
+  h1{margin:16px}
+  @media(min-width:700px){body{display:grid;place-items:center}
+  main{width:min(920px,96vw);padding:8px}video{width:auto;max-width:100%;
+  max-height:calc(100vh - 92px);margin:auto;border-radius:12px}}</style>
+  </head><body><main>${heading}${video}<div class="copy"><p>${message}</p>
+  ${signature}</div></main><script>const v=document.getElementById("video");
   if(v){const l=document.getElementById("loading"),e=document.getElementById("error");
   v.addEventListener("loadeddata",()=>l.hidden=true);v.addEventListener("error",()=>{
   l.hidden=true;e.hidden=false})}</script></body></html>`;
@@ -389,9 +415,10 @@ async function publicPage(code: string, env: Env, ctx: ExecutionContext) {
   log("video_accessed", { upload_id: row.id });
   return new Response(
     page(
-      "Vídeo complementar",
+      "Vídeo do laudo",
       "Este vídeo é um material complementar ao laudo médico e não substitui sua leitura integral.",
       code,
+      env.PROFESSIONAL_SIGNATURE,
     ),
     { headers: pageHeaders },
   );
