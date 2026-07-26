@@ -65,6 +65,38 @@ página, Range, revogação e limpeza.
 - `CLOUDFLARE_R2_BUCKET`: padrão `skjaldr`;
 - `MAX_VIDEO_SIZE_BYTES`: padrão 1 GiB;
 - `VIDEO_RETENTION_DAYS`: `0` significa retenção indefinida.
+- `ANALYTICS_RETENTION_DAYS`: retenção das estatísticas diárias, padrão 30 dias.
+
+## Estatísticas de acesso
+
+O Worker registra somente totais diários agregados por vídeo:
+
+- visualizações da página;
+- reproduções iniciadas;
+- reproduções concluídas;
+- país;
+- classe ampla do dispositivo: `mobile`, `tablet` ou `desktop`.
+
+Não são persistidos IP, `User-Agent`, cidade, coordenadas, sistema operacional,
+cookie ou identificador de visitante. A página informa essa coleta em uma linha
+discreta. Os registros são removidos após 30 dias por padrão.
+
+A consulta exige o token administrativo:
+
+```text
+GET /api/videos/{id}/stats
+GET /api/stats?code=123-456
+```
+
+O resultado contém totais e a distribuição diária por país e classe de
+dispositivo.
+
+Consulta local por código ou URL:
+
+```bash
+./Scripts/video-stats.sh 123-456
+./Scripts/video-stats.sh https://odin.med.br/123-456
+```
 
 ## Falhas e recuperação
 

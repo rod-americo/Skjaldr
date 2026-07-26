@@ -57,9 +57,34 @@ CHECKSUM="$(jq -r '.upload_headers["x-amz-checksum-sha256"]' <<<"${CREATE}")"
 "${CURL[@]}" -fsS -X POST -H "${AUTH}" "${BASE_URL}/api/videos/${ID}/complete" |
     jq -e '.status == "available"' >/dev/null
 "${CURL[@]}" -fsS "${PUBLIC_URL}" | grep -q "material complementar"
+SHORT_CODE="$(jq -r '.short_code' <<<"${CREATE}")"
+"${CURL[@]}" -fsS -X POST -H "Origin: ${BASE_URL}" \
+    -H "User-Agent: Skjaldr-E2E-Mobile" \
+    "${BASE_URL}/analytics/${SHORT_CODE}/play" >/dev/null
+"${CURL[@]}" -fsS -X POST -H "Origin: ${BASE_URL}" \
+    -H "User-Agent: Skjaldr-E2E-Mobile" \
+    "${BASE_URL}/analytics/${SHORT_CODE}/complete" >/dev/null
+for attempt in 1 2 3 4 5; do
+    STATS="$("${CURL[@]}" -fsS -H "${AUTH}" \
+        "${BASE_URL}/api/stats?code=${SHORT_CODE}")"
+    if jq -e \
+        '.totals.page_views >= 1 and .totals.play_starts == 1
+         and .totals.play_completions == 1' <<<"${STATS}" >/dev/null; then
+        break
+    fi
+    [[ "${attempt}" -lt 5 ]] || {
+        echo "Estatísticas agregadas não foram persistidas." >&2
+        exit 1
+    }
+    sleep 1
+done
+if grep -Eqi 'ip|user.?agent|city|latitude|longitude' <<<"${STATS}"; then
+    echo "A API de estatísticas expôs um campo intrusivo." >&2
+    exit 1
+fi
 RANGE_HEADERS="${TEMP_DIR}/range.headers"
 "${CURL[@]}" -fsS -D "${RANGE_HEADERS}" -H "Range: bytes=0-255" \
-    "${BASE_URL}/media/$(jq -r '.short_code' <<<"${CREATE}")" >/dev/null
+    "${BASE_URL}/media/${SHORT_CODE}" >/dev/null
 grep -q " 206 " "${RANGE_HEADERS}"
 grep -qi '^content-range: bytes 0-255/' "${RANGE_HEADERS}"
 "${CURL[@]}" -fsS -X POST -H "${AUTH}" \
@@ -68,4 +93,4 @@ grep -qi '^content-range: bytes 0-255/' "${RANGE_HEADERS}"
 [[ "$("${CURL[@]}" -sS -o /dev/null -w '%{http_code}' "${PUBLIC_URL}")" == "410" ]]
 "${CURL[@]}" -fsS -X DELETE -H "${AUTH}" "${BASE_URL}/api/videos/${ID}" |
     jq -e '.status == "deleted"' >/dev/null
-echo "E2E aprovado: criação, upload, página, Range, revogação e limpeza."
+echo "E2E aprovado: upload, analytics agregados, página, Range, revogação e limpeza."

@@ -13,6 +13,7 @@ export interface Env {
   PUBLIC_BASE_URL: string;
   MAX_VIDEO_SIZE_BYTES: string;
   VIDEO_RETENTION_DAYS: string;
+  ANALYTICS_RETENTION_DAYS: string;
 }
 
 type VideoStatus =
@@ -44,6 +45,9 @@ interface CreateVideoBody {
   duration_seconds?: number;
   sha256: string;
 }
+
+type AnalyticsEvent = "page_view" | "play_start" | "play_complete";
+type DeviceClass = "mobile" | "tablet" | "desktop";
 
 const jsonHeaders = {
   "Cache-Control": "no-store",
@@ -97,6 +101,54 @@ function json(data: unknown, status = 200): Response {
 
 function log(event: string, fields: Record<string, unknown> = {}): void {
   console.log(JSON.stringify({ event, ...fields }));
+}
+
+export function classifyDevice(userAgent: string, mobileHint = ""): DeviceClass {
+  const normalized = userAgent.toLowerCase();
+  if (
+    /ipad|tablet|kindle|silk|playbook/.test(normalized) ||
+    (/android/.test(normalized) && !/mobile/.test(normalized))
+  ) return "tablet";
+  if (
+    mobileHint === "?1" ||
+    /mobile|iphone|ipod|android|windows phone/.test(normalized)
+  ) return "mobile";
+  return "desktop";
+}
+
+function requestCountry(request: Request): string {
+  const country = request.cf?.country;
+  return typeof country === "string" && /^[A-Za-z]{2}$/.test(country)
+    ? country.toUpperCase()
+    : "XX";
+}
+
+async function recordAnalytics(
+  event: AnalyticsEvent,
+  row: VideoRow,
+  request: Request,
+  env: Env,
+): Promise<void> {
+  const columns: Record<AnalyticsEvent, string> = {
+    page_view: "page_views",
+    play_start: "play_starts",
+    play_complete: "play_completions",
+  };
+  const column = columns[event];
+  const now = new Date();
+  const accessDate = now.toISOString().slice(0, 10);
+  const country = requestCountry(request);
+  const device = classifyDevice(
+    request.headers.get("User-Agent") ?? "",
+    request.headers.get("Sec-CH-UA-Mobile") ?? "",
+  );
+  await env.DB.prepare(
+    `INSERT INTO video_access_stats_daily (
+      video_id, access_date, country_code, device_class, ${column}, updated_at
+    ) VALUES (?, ?, ?, ?, 1, ?)
+    ON CONFLICT(video_id, access_date, country_code, device_class)
+    DO UPDATE SET ${column} = ${column} + 1, updated_at = excluded.updated_at`,
+  ).bind(row.id, accessDate, country, device, now.toISOString()).run();
 }
 
 function constantTimeEqual(left: string, right: string): boolean {
@@ -380,6 +432,9 @@ export function page(
   const signature = code && professionalSignature
     ? `<p class="signature">${escapeHTML(professionalSignature)}</p>`
     : "";
+  const privacy = code
+    ? `<p class="privacy">Estatísticas técnicas agregadas, sem cookies, IP armazenado ou identificação pessoal.</p>`
+    : "";
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow,noarchive"><title>${title}</title>
@@ -389,29 +444,43 @@ export function page(
   video{display:block;width:100%;height:auto;background:#000;border-radius:8px;
   box-shadow:0 10px 32px #0008}.copy{margin:7px 8px 4px}
   p{margin:0;color:#b7bdc8;line-height:1.35}.signature{margin-top:3px;
-  color:#858c98;font-size:12px;line-height:1.3}#loading,#error{margin:8px}
+  color:#858c98;font-size:12px;line-height:1.3}.privacy{margin-top:5px;
+  color:#646b76;font-size:10px;line-height:1.25}#loading,#error{margin:8px}
   h1{margin:16px}
   @media(min-width:700px){body{display:grid;place-items:center}
   main{width:min(920px,96vw);padding:8px}video{width:auto;max-width:100%;
   max-height:calc(100vh - 92px);margin:auto;border-radius:12px}}</style>
   </head><body><main>${heading}${video}<div class="copy"><p>${message}</p>
-  ${signature}</div></main><script>const v=document.getElementById("video");
+  ${signature}${privacy}</div></main><script>const v=document.getElementById("video");
   if(v){const l=document.getElementById("loading"),e=document.getElementById("error");
   v.addEventListener("loadeddata",()=>l.hidden=true);v.addEventListener("error",()=>{
-  l.hidden=true;e.hidden=false})}</script></body></html>`;
+  l.hidden=true;e.hidden=false});let started=false,completed=false;
+  const metric=event=>fetch("/analytics/${code}/"+event,{method:"POST",
+  credentials:"omit",keepalive:true}).catch(()=>{});
+  v.addEventListener("play",()=>{if(!started){started=true;metric("play")}});
+  v.addEventListener("ended",()=>{if(!completed){completed=true;metric("complete")}})
+  }</script></body></html>`;
 }
 
-async function publicPage(code: string, env: Env, ctx: ExecutionContext) {
+async function publicPage(
+  request: Request,
+  code: string,
+  env: Env,
+  ctx: ExecutionContext,
+) {
   const row = await rowForCode(code, env);
   if (!row) return new Response("Not Found", { status: 404, headers: pageHeaders });
   if (row.status !== "available" ||
       (row.expires_at && row.expires_at <= new Date().toISOString())) {
     return unavailablePage();
   }
-  ctx.waitUntil(env.DB.prepare(
-    `UPDATE videos SET access_count = access_count + 1,
-      last_accessed_at = ? WHERE id = ?`,
-  ).bind(new Date().toISOString(), row.id).run());
+  ctx.waitUntil((async () => {
+    await env.DB.prepare(
+      `UPDATE videos SET access_count = access_count + 1,
+        last_accessed_at = ? WHERE id = ?`,
+    ).bind(new Date().toISOString(), row.id).run();
+    await recordAnalytics("page_view", row, request, env);
+  })());
   log("video_accessed", { upload_id: row.id });
   return new Response(
     page(
@@ -422,6 +491,58 @@ async function publicPage(code: string, env: Env, ctx: ExecutionContext) {
     ),
     { headers: pageHeaders },
   );
+}
+
+async function analytics(
+  request: Request,
+  code: string,
+  event: "play" | "complete",
+  env: Env,
+): Promise<Response> {
+  const origin = request.headers.get("Origin");
+  if (origin !== env.PUBLIC_BASE_URL) {
+    return new Response(null, { status: 403, headers: pageHeaders });
+  }
+  const row = await rowForCode(code, env);
+  if (!row || row.status !== "available" ||
+      (row.expires_at && row.expires_at <= new Date().toISOString())) {
+    return new Response(null, { status: 404, headers: pageHeaders });
+  }
+  await recordAnalytics(
+    event === "play" ? "play_start" : "play_complete",
+    row,
+    request,
+    env,
+  );
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
+    },
+  });
+}
+
+async function videoStats(row: VideoRow, env: Env): Promise<Response> {
+  const totals = await env.DB.prepare(
+    `SELECT
+      COALESCE(SUM(page_views), 0) AS page_views,
+      COALESCE(SUM(play_starts), 0) AS play_starts,
+      COALESCE(SUM(play_completions), 0) AS play_completions
+    FROM video_access_stats_daily WHERE video_id = ?`,
+  ).bind(row.id).first();
+  const daily = await env.DB.prepare(
+    `SELECT access_date, country_code, device_class, page_views,
+      play_starts, play_completions
+    FROM video_access_stats_daily WHERE video_id = ?
+    ORDER BY access_date DESC, country_code, device_class LIMIT 500`,
+  ).bind(row.id).all();
+  return json({
+    short_code: formatShortCode(row.short_code),
+    totals,
+    daily: daily.results,
+  });
 }
 
 async function media(request: Request, code: string, env: Env) {
@@ -485,11 +606,17 @@ async function media(request: Request, code: string, env: Env) {
 
 async function api(request: Request, url: URL, env: Env): Promise<Response> {
   if (!isAuthorized(request, env)) return json({ error: "unauthorized" }, 401);
+  if (request.method === "GET" && url.pathname === "/api/stats") {
+    const code = normalizeShortCode(url.searchParams.get("code") ?? "");
+    if (!code) return json({ error: "invalid_code" }, 400);
+    const row = await rowForCode(code, env);
+    return row ? videoStats(row, env) : json({ error: "not_found" }, 404);
+  }
   if (request.method === "POST" && url.pathname === "/api/videos") {
     return createVideo(request, env);
   }
   const match = url.pathname.match(
-    /^\/api\/videos\/([0-9a-f-]+)(?:\/(complete|retry|revoke|status))?$/,
+    /^\/api\/videos\/([0-9a-f-]+)(?:\/(complete|retry|revoke|status|stats))?$/,
   );
   if (!match) return json({ error: "not_found" }, 404);
   const [, id, action] = match;
@@ -509,6 +636,10 @@ async function api(request: Request, url: URL, env: Env): Promise<Response> {
     const row = await findByID(id, env);
     return row ? json(publicFields(row, env)) : json({ error: "not_found" }, 404);
   }
+  if (request.method === "GET" && action === "stats") {
+    const row = await findByID(id, env);
+    return row ? videoStats(row, env) : json({ error: "not_found" }, 404);
+  }
   return json({ error: "method_not_allowed" }, 405);
 }
 
@@ -524,6 +655,32 @@ async function handle(
       return json({ service: "skjaldr-video", status: "ok" });
     }
     if (url.pathname.startsWith("/api/")) return api(request, url, env);
+    const analyticsMatch = url.pathname.match(
+      /^\/analytics\/([^/]+)\/(play|complete)$/,
+    );
+    if (analyticsMatch) {
+      if (request.method !== "POST") {
+        return new Response("Method Not Allowed", {
+          status: 405,
+          headers: { ...pageHeaders, Allow: "POST" },
+        });
+      }
+      const code = normalizeShortCode(analyticsMatch[1]);
+      if (!code) {
+        return new Response("Not Found", { status: 404, headers: pageHeaders });
+      }
+      if (env.PUBLIC_RATE_LIMITER) {
+        const actor = request.headers.get("cf-connecting-ip") ?? "unknown";
+        const allowed = await env.PUBLIC_RATE_LIMITER.limit({ key: actor });
+        if (!allowed.success) {
+          return new Response("Too Many Requests", {
+            status: 429,
+            headers: { ...pageHeaders, "Retry-After": "60" },
+          });
+        }
+      }
+      return analytics(request, code, analyticsMatch[2] as "play" | "complete", env);
+    }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method Not Allowed", {
         status: 405,
@@ -542,7 +699,7 @@ async function handle(
         headers: { ...pageHeaders, "Retry-After": "60" },
       });
     }
-    return mediaMatch ? media(request, code, env) : publicPage(code, env, ctx);
+    return mediaMatch ? media(request, code, env) : publicPage(request, code, env, ctx);
   } catch (error) {
     log("request_failed", { request_id: requestID, message: String(error) });
     return json({ error: "internal_error", request_id: requestID }, 500);
@@ -566,6 +723,13 @@ async function cleanup(env: Env): Promise<void> {
       WHERE status IN ('pending', 'uploading')
       AND created_at < datetime('now', '-1 day')`,
   ).run();
+  const analyticsRetention = Math.max(
+    1,
+    Number(env.ANALYTICS_RETENTION_DAYS || 30),
+  );
+  await env.DB.prepare(
+    "DELETE FROM video_access_stats_daily WHERE access_date < date('now', ?)",
+  ).bind(`-${analyticsRetention} days`).run();
 }
 
 export default {

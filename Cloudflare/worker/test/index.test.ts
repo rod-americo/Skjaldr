@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyDevice,
   formatShortCode,
   generateShortCode,
   normalizeShortCode,
@@ -26,6 +27,17 @@ describe("short codes", () => {
   });
 });
 
+describe("privacy-preserving device classification", () => {
+  it("reduces user agents to broad device categories", () => {
+    expect(classifyDevice("Mozilla/5.0 (iPhone; CPU iPhone OS)", "?1"))
+      .toBe("mobile");
+    expect(classifyDevice("Mozilla/5.0 (iPad; CPU OS 18_0)"))
+      .toBe("tablet");
+    expect(classifyDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X)"))
+      .toBe("desktop");
+  });
+});
+
 describe("public video page", () => {
   it("prioritizes the player and shows the medical signature without a heading", () => {
     const html = page(
@@ -40,6 +52,8 @@ describe("public video page", () => {
     expect(html).not.toContain("<h1>Vídeo do laudo</h1>");
     expect(html).toContain("Assinatura profissional");
     expect(html).toContain("width:100%");
+    expect(html).toContain("sem cookies, IP armazenado ou identificação pessoal");
+    expect(html).toContain('/analytics/123456/"+event');
   });
 
   it("escapes the signature supplied by configuration", () => {
