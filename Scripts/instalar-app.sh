@@ -65,7 +65,17 @@ if [[ -z "${REQUISITO_ORIGEM}" ]]; then
 fi
 
 if [[ -e "${DESTINO_APP}" ]]; then
-    codesign --verify --deep --strict "${DESTINO_APP}"
+    ASSINATURA_INSTALADA_VALIDA=true
+    if ! codesign --verify --deep --strict "${DESTINO_APP}"; then
+        ASSINATURA_INSTALADA_VALIDA=false
+    fi
+
+    if [[ "$(identificador_assinado "${DESTINO_APP}")" != "${BUNDLE_ID_ESPERADO}" ||
+          "$(team_assinado "${DESTINO_APP}")" != "${TEAM_ID_ESPERADO}" ]]; then
+        echo "Instalação recusada: o aplicativo instalado não possui a identidade esperada." >&2
+        exit 1
+    fi
+
     REQUISITO_INSTALADO="$(requisito_designado "${DESTINO_APP}")"
     if [[ "${REQUISITO_INSTALADO}" != "${REQUISITO_ORIGEM}" ]]; then
         echo "Instalação recusada: a identidade do novo app é diferente." >&2
@@ -73,6 +83,10 @@ if [[ -e "${DESTINO_APP}" ]]; then
         echo "Novo:      ${REQUISITO_ORIGEM}" >&2
         echo "Isso invalidaria as permissões de gravação do macOS." >&2
         exit 1
+    fi
+
+    if [[ "${ASSINATURA_INSTALADA_VALIDA}" == false ]]; then
+        echo "Aviso: a instalação existente está com assinatura inválida e será reparada." >&2
     fi
 fi
 
