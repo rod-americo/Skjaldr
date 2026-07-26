@@ -95,6 +95,21 @@ struct VideoCaptureTests {
         #expect(bottomLeft.minY == bounds.minY)
     }
 
+    @Test("Moldura de gravação acompanha exatamente a região selecionada")
+    func recordingOverlayFramesSelectionWithoutCoveringItsBounds() {
+        let region = CGRect(x: -1_200, y: 140, width: 480, height: 1_040)
+        let borderWidth: CGFloat = 3
+        let frame = RecordingRegionOverlayController.windowFrame(
+            for: region,
+            borderWidth: borderWidth
+        )
+
+        #expect(frame.minX == region.minX - borderWidth)
+        #expect(frame.minY == region.minY - borderWidth)
+        #expect(frame.maxX == region.maxX + borderWidth)
+        #expect(frame.maxY == region.maxY + borderWidth)
+    }
+
     @Test("Última região é restaurada em coordenadas normalizadas")
     func storedRegionRoundTrip() throws {
         let screen = CGRect(x: -1920, y: 0, width: 1920, height: 1080)

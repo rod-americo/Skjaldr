@@ -60,6 +60,7 @@ Implementado:
 - testes automatizados de layout, renderização, pasteboard e persistência;
 - captura de vídeo em `Phone Portrait` (6:13) e `Phone Landscape` (13:6);
 - seleção multitelas com proporção fixa e restauração da última região;
+- moldura persistente, passiva e excluída do vídeo durante a gravação;
 - áudio do sistema, microfone, ambos ou nenhum;
 - exportação MP4 em H.264/AAC a 30 fps;
 - salvamento automático na pasta configurada;

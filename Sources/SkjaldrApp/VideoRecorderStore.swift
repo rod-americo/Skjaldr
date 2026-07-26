@@ -33,6 +33,7 @@ final class VideoRecorderStore: ObservableObject {
     private let preferences: VideoCapturePreferences
     private let selector = VideoRegionSelectionController()
     private let recorder = ScreenCaptureRecorder()
+    private let recordingOverlay = RecordingRegionOverlayController()
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "io.skjaldr.app",
         category: "VideoCapture"
@@ -249,6 +250,7 @@ final class VideoRecorderStore: ObservableObject {
                 resetToIdle()
                 return
             }
+            recordingOverlay.show(selection: selection)
             phase = .recording
             elapsedTime = 0
             startDurationUpdates()
@@ -326,6 +328,7 @@ final class VideoRecorderStore: ObservableObject {
     }
 
     private func resetToIdle() {
+        recordingOverlay.hide()
         durationTask?.cancel()
         durationTask = nil
         elapsedTime = 0

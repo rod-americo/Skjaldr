@@ -49,6 +49,10 @@ H.264. ScreenCaptureKit também incorpora áudio do sistema e microfone conforme
 o modo selecionado. O arquivo recebe nome temporário aleatório e só é movido
 para o nome final após o encerramento correto da gravação.
 
+`RecordingRegionOverlayController` mantém um contorno passivo sobre a região
+enquanto o stream está ativo. A janela ignora o mouse, acompanha Spaces e tela
+cheia e, por pertencer ao Skjaldr, é removida pelo filtro da própria captura.
+
 `VideoCapturePreferences` persiste preset, modo de áudio, dispositivo, pasta de
 saída e última região normalizada por orientação. `GlobalHotKeyController`
 registra `⌘⇧9` pelo mecanismo nativo de hotkeys do macOS.
