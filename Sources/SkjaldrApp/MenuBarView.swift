@@ -110,7 +110,9 @@ struct MenuBarView: View {
         case .completed:
             Divider()
             Label("Link criado", systemImage: "checkmark.circle.fill")
-            Button("Copiar link", action: uploadStore.copyLink)
+            Button("Copiar link") {
+                _ = uploadStore.copyLink()
+            }
             Button("Abrir link", action: uploadStore.openLink)
         case .failed:
             Divider()

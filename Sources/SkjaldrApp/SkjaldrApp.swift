@@ -82,16 +82,25 @@ struct SkjaldrApp: App {
                 .environmentObject(videoStore)
                 .environmentObject(uploadStore)
         } label: {
+            let iconState = MenuBarIconState.resolve(
+                recordingPhase: videoStore.phase,
+                uploadPhase: uploadStore.phase,
+                isUploadCompletionVisible:
+                    uploadStore.isCompletionIndicatorVisible
+            )
             Group {
-                if videoStore.phase == .recording {
-                    Image(systemName: "record.circle.fill")
-                } else if videoStore.phase == .finishing {
-                    Image(systemName: "hourglass.circle")
-                } else {
+                switch iconState {
+                case .app:
                     Image("MenuBarIcon")
+                case .recording:
+                    Image(systemName: "record.circle.fill")
+                case .uploading:
+                    Image(systemName: "icloud.and.arrow.up")
+                case .uploadCompleted:
+                    Image(systemName: "checkmark.circle.fill")
                 }
             }
-            .accessibilityLabel("Skjaldr")
+            .accessibilityLabel(iconState.accessibilityLabel)
         }
         .menuBarExtraStyle(.menu)
 

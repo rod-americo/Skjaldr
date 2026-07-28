@@ -4,6 +4,111 @@ import Testing
 
 @Suite("Upload de vídeo", .serialized)
 struct VideoUploadTests {
+    @Test(
+        "Menu bar icon follows recording, upload, completion, and idle states",
+        arguments: [
+            (
+                VideoRecordingPhase.idle,
+                VideoUploadPhase.idle,
+                false,
+                MenuBarIconState.app
+            ),
+            (
+                VideoRecordingPhase.recording,
+                VideoUploadPhase.idle,
+                false,
+                MenuBarIconState.recording
+            ),
+            (
+                VideoRecordingPhase.finishing,
+                VideoUploadPhase.preparing,
+                false,
+                MenuBarIconState.recording
+            ),
+            (
+                VideoRecordingPhase.idle,
+                VideoUploadPhase.preparing,
+                false,
+                MenuBarIconState.uploading
+            ),
+            (
+                VideoRecordingPhase.idle,
+                VideoUploadPhase.uploading,
+                false,
+                MenuBarIconState.uploading
+            ),
+            (
+                VideoRecordingPhase.idle,
+                VideoUploadPhase.confirming,
+                false,
+                MenuBarIconState.uploading
+            ),
+            (
+                VideoRecordingPhase.idle,
+                VideoUploadPhase.completed,
+                true,
+                MenuBarIconState.uploadCompleted
+            ),
+            (
+                VideoRecordingPhase.idle,
+                VideoUploadPhase.completed,
+                false,
+                MenuBarIconState.app
+            ),
+            (
+                VideoRecordingPhase.idle,
+                VideoUploadPhase.failed,
+                false,
+                MenuBarIconState.app
+            ),
+        ]
+    )
+    func menuBarIconStateResolution(
+        recordingPhase: VideoRecordingPhase,
+        uploadPhase: VideoUploadPhase,
+        completionVisible: Bool,
+        expected: MenuBarIconState
+    ) {
+        #expect(
+            MenuBarIconState.resolve(
+                recordingPhase: recordingPhase,
+                uploadPhase: uploadPhase,
+                isUploadCompletionVisible: completionVisible
+            ) == expected
+        )
+    }
+
+    @Test("Completion indicator dismisses manually and automatically")
+    @MainActor
+    func completionIndicatorDismisses() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "SkjaldrUploadIndicator-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = VideoUploadStore(
+            queueURL: directory.appendingPathComponent("queue.json")
+        )
+
+        store.presentCompletionIndicator(
+            autoDismissAfter: .milliseconds(20)
+        )
+        #expect(store.isCompletionIndicatorVisible)
+
+        try await Task.sleep(for: .milliseconds(60))
+        #expect(!store.isCompletionIndicatorVisible)
+
+        store.presentCompletionIndicator(autoDismissAfter: .seconds(10))
+        #expect(store.isCompletionIndicatorVisible)
+        store.dismissCompletionIndicator()
+        #expect(!store.isCompletionIndicatorVisible)
+    }
+
     @Test("Configuração exige HTTPS e token")
     func configurationRequiresHTTPS() throws {
         let directory = FileManager.default.temporaryDirectory

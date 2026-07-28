@@ -75,7 +75,12 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            if uploadStore.phase != .idle {
+            if uploadStore.phase != .idle &&
+                (
+                    uploadStore.phase != .completed ||
+                    uploadStore.isCompletionIndicatorVisible
+                )
+            {
                 uploadIndicator
                     .padding(.bottom, 14)
                     .padding(.trailing, 14)
@@ -205,6 +210,18 @@ struct ContentView: View {
                 )
                 Text(uploadStore.phase.title)
                     .font(.callout.weight(.semibold))
+                Spacer(minLength: 12)
+                if uploadStore.phase == .completed {
+                    Button(
+                        action: uploadStore.dismissCompletionIndicator
+                    ) {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Fechar")
+                    .accessibilityLabel("Fechar aviso de upload")
+                }
             }
 
             if uploadStore.phase == .uploading {
@@ -227,7 +244,9 @@ struct ContentView: View {
                     .textSelection(.enabled)
                     .lineLimit(1)
                 HStack {
-                    Button("Copiar link", action: uploadStore.copyLink)
+                    Button("Copiar link") {
+                        _ = uploadStore.copyLink()
+                    }
                     Button("Abrir", action: uploadStore.openLink)
                 }
                 .controlSize(.small)

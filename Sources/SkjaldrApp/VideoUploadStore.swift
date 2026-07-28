@@ -13,6 +13,7 @@ final class VideoUploadStore: ObservableObject {
     @Published private(set) var totalBytes: Int64 = 0
     @Published private(set) var publicURL: URL?
     @Published private(set) var errorMessage: String?
+    @Published private(set) var isCompletionIndicatorVisible = false
     @Published var deleteLocalAfterUpload: Bool {
         didSet {
             UserDefaults.standard.set(
@@ -28,6 +29,7 @@ final class VideoUploadStore: ObservableObject {
     )
     private var queue: [PendingVideoUpload] = []
     private var workerTask: Task<Void, Never>?
+    private var completionIndicatorTask: Task<Void, Never>?
     private var activeUploader: VideoFileUploader?
     private var isSuspendedForRecording = false
     private var shouldResumeWorker = false
@@ -109,8 +111,9 @@ final class VideoUploadStore: ObservableObject {
         startWorkerIfNeeded()
     }
 
-    func copyLink() {
-        guard let publicURL else { return }
+    @discardableResult
+    func copyLink() -> Bool {
+        guard let publicURL else { return false }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         guard pasteboard.setString(
@@ -118,13 +121,33 @@ final class VideoUploadStore: ObservableObject {
             forType: .string
         ) else {
             errorMessage = VideoUploadError.clipboard.localizedDescription
-            return
+            return false
         }
+        return true
     }
 
     func openLink() {
         guard let publicURL else { return }
         NSWorkspace.shared.open(publicURL)
+    }
+
+    func dismissCompletionIndicator() {
+        completionIndicatorTask?.cancel()
+        completionIndicatorTask = nil
+        isCompletionIndicatorVisible = false
+    }
+
+    func presentCompletionIndicator(
+        autoDismissAfter delay: Duration = .seconds(8)
+    ) {
+        completionIndicatorTask?.cancel()
+        isCompletionIndicatorVisible = true
+        completionIndicatorTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            self?.isCompletionIndicatorVisible = false
+            self?.completionIndicatorTask = nil
+        }
     }
 
     private func processQueue() async {
@@ -247,7 +270,11 @@ final class VideoUploadStore: ObservableObject {
         persistQueue()
         self.publicURL = publicURL
         phase = .completed
-        copyLink()
+        if copyLink() {
+            presentCompletionIndicator()
+        } else {
+            dismissCompletionIndicator()
+        }
         onUploadCompleted?(publicURL)
     }
 
@@ -265,6 +292,7 @@ final class VideoUploadStore: ObservableObject {
         guard configuration.uploadEnabled else { return nil }
 
         phase = .preparing
+        dismissCompletionIndicator()
         errorMessage = nil
         publicURL = nil
         progress = 0
