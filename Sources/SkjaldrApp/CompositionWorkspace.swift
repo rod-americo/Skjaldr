@@ -11,6 +11,24 @@ struct CompositionSceneRequest {
 }
 
 @MainActor
+final class CompositionWindowCloseInterceptor: NSObject {
+    private let onClose: () -> Void
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+    }
+
+    func install(on button: NSButton?) {
+        button?.target = self
+        button?.action = #selector(handleClose(_:))
+    }
+
+    @objc func handleClose(_ sender: Any?) {
+        onClose()
+    }
+}
+
+@MainActor
 final class CompositionTab: Identifiable {
     let id: UUID
     let title: String
@@ -129,10 +147,16 @@ final class CompositionWorkspace: ObservableObject {
     private final class WindowRecord {
         weak var window: NSWindow?
         let controller: CompositionWindowController
+        let closeInterceptor: CompositionWindowCloseInterceptor
 
-        init(window: NSWindow, controller: CompositionWindowController) {
+        init(
+            window: NSWindow,
+            controller: CompositionWindowController,
+            closeInterceptor: CompositionWindowCloseInterceptor
+        ) {
             self.window = window
             self.controller = controller
+            self.closeInterceptor = closeInterceptor
         }
     }
 
@@ -210,13 +234,28 @@ final class CompositionWorkspace: ObservableObject {
         controller: CompositionWindowController
     ) {
         let key = ObjectIdentifier(window)
-        guard records[key] == nil else {
+        if let record = records[key] {
+            record.closeInterceptor.install(
+                on: window.standardWindowButton(.closeButton)
+            )
             if window.isVisible && window.isKeyWindow {
                 activate(controller: controller)
             }
             return
         }
-        records[key] = WindowRecord(window: window, controller: controller)
+        let closeInterceptor = CompositionWindowCloseInterceptor {
+            [weak self, weak controller] in
+            guard let self, let controller else { return }
+            self.requestWindowClose(for: controller)
+        }
+        closeInterceptor.install(
+            on: window.standardWindowButton(.closeButton)
+        )
+        records[key] = WindowRecord(
+            window: window,
+            controller: controller,
+            closeInterceptor: closeInterceptor
+        )
         window.identifier = NSUserInterfaceItemIdentifier(
             "io.skjaldr.composer.\(controller.request.compositionID.uuidString)"
         )

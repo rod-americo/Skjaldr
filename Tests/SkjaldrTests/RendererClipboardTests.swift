@@ -263,6 +263,26 @@ struct RendererClipboardTests {
         )
     }
 
+    @MainActor
+    @Test("Red button hides the composition without closing the window")
+    func compositionCloseButtonUsesHideInterceptor() {
+        var closeCount = 0
+        let interceptor = CompositionWindowCloseInterceptor {
+            closeCount += 1
+        }
+        let button = NSButton()
+
+        interceptor.install(on: button)
+
+        #expect(button.target === interceptor)
+        #expect(
+            button.action
+                == #selector(CompositionWindowCloseInterceptor.handleClose(_:))
+        )
+        interceptor.handleClose(button)
+        #expect(closeCount == 1)
+    }
+
     @Test("Sessão anterior sem grupos continua compatível")
     func legacySessionMigration() throws {
         var state = CompositionState()
