@@ -10,6 +10,30 @@ struct CompositionSceneRequest {
     )
 }
 
+enum CompositionTabCloseIntent {
+    case tabControl
+    case keyboard
+}
+
+enum CompositionTabCloseAction: Equatable {
+    case closeTab
+    case replaceWithBlankTab
+    case hideApplication
+
+    static func resolve(
+        tabCount: Int,
+        intent: CompositionTabCloseIntent
+    ) -> Self {
+        guard tabCount <= 1 else { return .closeTab }
+        switch intent {
+        case .tabControl:
+            return .replaceWithBlankTab
+        case .keyboard:
+            return .hideApplication
+        }
+    }
+}
+
 @MainActor
 final class CompositionWindowCloseInterceptor: NSObject {
     private let onClose: () -> Void
@@ -90,9 +114,17 @@ final class CompositionWindowController: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else {
             return
         }
-        guard tabs.count > 1 else {
-            workspace.requestWindowClose(for: self)
+        switch CompositionTabCloseAction.resolve(
+            tabCount: tabs.count,
+            intent: .tabControl
+        ) {
+        case .replaceWithBlankTab:
+            replaceLastTab()
             return
+        case .hideApplication:
+            return
+        case .closeTab:
+            break
         }
 
         let removed = tabs.remove(at: index)
@@ -106,7 +138,27 @@ final class CompositionWindowController: ObservableObject {
     }
 
     func closeActiveTab() {
-        close(activeTabID)
+        switch CompositionTabCloseAction.resolve(
+            tabCount: tabs.count,
+            intent: .keyboard
+        ) {
+        case .hideApplication:
+            workspace.hideWindow(for: self)
+        case .closeTab:
+            close(activeTabID)
+        case .replaceWithBlankTab:
+            break
+        }
+    }
+
+    private func replaceLastTab() {
+        let removed = tabs.removeLast()
+        removed.store.monitor.stop()
+        let replacement = workspace.makeTab(compositionID: UUID())
+        tabs = [replacement]
+        activeTabID = replacement.id
+        persistTabState()
+        workspace.activate(controller: self)
     }
 
     private func persistTabState() {
@@ -243,9 +295,9 @@ final class CompositionWorkspace: ObservableObject {
             return
         }
         let closeInterceptor = CompositionWindowCloseInterceptor {
-            [weak self, weak controller] in
-            guard let self, let controller else { return }
-            self.requestWindowClose(for: controller)
+            [weak controller] in
+            guard let controller else { return }
+            controller.close(controller.activeTabID)
         }
         closeInterceptor.install(
             on: window.standardWindowButton(.closeButton)
@@ -270,7 +322,7 @@ final class CompositionWorkspace: ObservableObject {
         activeController?.addTab()
     }
 
-    func requestWindowClose(for controller: CompositionWindowController) {
+    func hideWindow(for controller: CompositionWindowController) {
         guard let record = records.values.first(where: {
             $0.controller === controller
         }), let window = record.window

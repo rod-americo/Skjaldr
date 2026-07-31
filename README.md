@@ -226,6 +226,10 @@ Atalhos principais:
 | `⌘F14` | iniciar seleção / cancelar seleção / parar gravação |
 | `⌃⌥F14` | cancelar gravação sem salvar nem enviar |
 
+O botão de fechar de uma aba sempre fecha aquela composição. Se for a última,
+o Skjaldr cria imediatamente uma nova aba vazia e mantém a janela visível. Para
+ocultar o aplicativo com apenas uma aba aberta, use `⌘W` ou `⌘H`.
+
 ## Privacidade
 
 O processamento de imagens ocorre localmente e não há analytics. As fontes copiadas para a sessão
