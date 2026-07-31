@@ -121,6 +121,23 @@ struct ContentView: View {
             videoStore.startHotKeyMonitoring()
             startDeleteKeyMonitoring()
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSControl.textDidBeginEditingNotification
+            )
+        ) { notification in
+            TextEditingSupport.enableSystemSpelling(
+                from: notification,
+                in: NSApp.keyWindow
+            )
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSControl.textDidEndEditingNotification
+            )
+        ) { notification in
+            TextEditingSupport.finishEditing(from: notification)
+        }
         .onDisappear {
             stopDeleteKeyMonitoring()
         }
@@ -141,6 +158,12 @@ struct ContentView: View {
                     "io.skjaldr.composer.\(windowID.uuidString)"
             else {
                 return event
+            }
+
+            if let action = TextEditingShortcut.action(for: event),
+               TextEditingSupport.performIfEditing(action)
+            {
+                return nil
             }
 
             if CompositionTabCloseShortcut.matches(event) {

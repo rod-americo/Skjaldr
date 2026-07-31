@@ -211,8 +211,9 @@ Atalhos principais:
 | `⌘T` | nova aba de composição na janela única |
 | `⌘F13` | mostrar o Skjaldr e abrir uma composição em aba |
 | `⌘W` | fechar a aba atual; na última, ocultar o Skjaldr |
-| `⌘V` | adicionar imagem do clipboard |
-| `⌘C` | copiar sempre a composição final |
+| `⌘V` | adicionar imagem do clipboard; em uma legenda, colar texto |
+| `⌘C` | copiar a composição final; em uma legenda, copiar texto |
+| `⌘X` / `⌘A` | recortar / selecionar tudo em uma legenda |
 | `⌘E` | salvar a composição |
 | `⌘O` | importar arquivos |
 | `⌘Z` / `⌘⇧Z` | desfazer / refazer |

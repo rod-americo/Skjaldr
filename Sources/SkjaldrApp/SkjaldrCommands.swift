@@ -50,16 +50,34 @@ struct SkjaldrCommands: Commands {
 
             Divider()
 
+            Button("Recortar") {
+                _ = TextEditingSupport.performIfEditing(.cut)
+            }
+            .keyboardShortcut("x", modifiers: .command)
+            .disabled(store == nil)
+
             Button("Copiar composição") {
-                store?.copyComposition()
+                if !TextEditingSupport.performIfEditing(.copy),
+                   store?.state.items.isEmpty == false
+                {
+                    store?.copyComposition()
+                }
             }
             .keyboardShortcut("c", modifiers: .command)
-            .disabled(store?.state.items.isEmpty != false)
+            .disabled(store == nil)
 
             Button("Adicionar imagem da área de transferência") {
-                store?.pasteFromClipboard()
+                if !TextEditingSupport.performIfEditing(.paste) {
+                    store?.pasteFromClipboard()
+                }
             }
             .keyboardShortcut("v", modifiers: .command)
+            .disabled(store == nil)
+
+            Button("Selecionar tudo") {
+                _ = TextEditingSupport.performIfEditing(.selectAll)
+            }
+            .keyboardShortcut("a", modifiers: .command)
             .disabled(store == nil)
         }
 

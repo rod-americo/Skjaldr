@@ -92,6 +92,35 @@ struct RendererClipboardTests {
         }
     }
 
+    @MainActor
+    @Test("Editor de legenda usa comandos textuais e inspeção ortográfica")
+    func captionEditorUsesTextCommandsAndSpellChecking() {
+        let textView = NSTextView()
+        let button = NSButton()
+
+        #expect(TextEditingSupport.isEditingText(textView))
+        #expect(!TextEditingSupport.isEditingText(button))
+        #expect(!textView.isContinuousSpellCheckingEnabled)
+
+        TextEditingSupport.enableSystemSpelling(on: textView)
+
+        #expect(textView.isContinuousSpellCheckingEnabled)
+        #expect(TextEditingAction.copy.selector == #selector(NSText.copy(_:)))
+        #expect(TextEditingAction.paste.selector == #selector(NSText.paste(_:)))
+        #expect(
+            TextEditingShortcut.action(
+                keyCode: 8,
+                modifiers: .command
+            ) == .copy
+        )
+        #expect(
+            TextEditingShortcut.action(
+                keyCode: 9,
+                modifiers: [.command, .shift]
+            ) == nil
+        )
+    }
+
     @Test("Recorte conservador detecta borda uniforme")
     func uniformBorderCrop() throws {
         let bitmap = NSBitmapImageRep(
