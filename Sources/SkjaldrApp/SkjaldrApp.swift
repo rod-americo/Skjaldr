@@ -13,6 +13,7 @@ struct SkjaldrApp: App {
         VideoCompletionBannerController
 
     init() {
+        SessionPersistence.removeSecondaryCompositions()
         let videoStore = VideoRecorderStore()
         let uploadStore = VideoUploadStore()
         let workspace = CompositionWorkspace(videoStore: videoStore)

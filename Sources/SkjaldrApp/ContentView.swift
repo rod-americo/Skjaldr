@@ -444,7 +444,7 @@ struct ContentView: View {
                     .help("Arraste a composição como arquivo PNG para outro aplicativo")
                 }
             } else {
-                VStack(spacing: 16) {
+                VStack(spacing: 15) {
                     Image(systemName: "square.grid.2x2")
                         .font(.system(size: 52, weight: .ultraLight))
                         .foregroundStyle(.secondary)
@@ -457,7 +457,47 @@ struct ContentView: View {
                             .keyboardShortcut("v", modifiers: .command)
                         Button("Selecionar arquivos…", action: store.openImporter)
                     }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Atalhos rápidos")
+                            .font(.callout.weight(.semibold))
+
+                        Text("Globais — funcionam mesmo com outro aplicativo em uso")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        ShortcutHelpRow(
+                            shortcut: "⌘F13",
+                            description: "mostrar o Skjaldr em uma nova aba"
+                        )
+                        ShortcutHelpRow(
+                            shortcut: "⌘F14",
+                            description: "iniciar ou terminar a gravação"
+                        )
+                        ShortcutHelpRow(
+                            shortcut: "⌃⌥F14",
+                            description: "cancelar a gravação sem salvar"
+                        )
+
+                        Divider()
+
+                        ShortcutHelpRow(
+                            shortcut: "⌘V / ⌘C",
+                            description: "adicionar imagem / copiar composição"
+                        )
+                        ShortcutHelpRow(
+                            shortcut: "⌘T / ⌘W",
+                            description: "abrir / fechar aba"
+                        )
+                    }
+                    .frame(maxWidth: 430, alignment: .leading)
+                    .padding(13)
+                    .background(
+                        Color(nsColor: .controlBackgroundColor).opacity(0.7),
+                        in: RoundedRectangle(cornerRadius: 10)
+                    )
                 }
+                .padding(.horizontal, 24)
             }
 
             if isDropTarget {
@@ -746,6 +786,24 @@ struct ContentView: View {
             }
         }
         return accepted
+    }
+}
+
+private struct ShortcutHelpRow: View {
+    let shortcut: String
+    let description: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(shortcut)
+                .font(.caption.monospaced().weight(.semibold))
+                .frame(width: 82, alignment: .trailing)
+                .foregroundStyle(.primary)
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

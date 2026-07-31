@@ -29,12 +29,15 @@ final class ProjectStore: ObservableObject {
 
     init(
         persistence: SessionPersistence = .live(),
-        restoreMonitorPreference: Bool = true
+        restoreMonitorPreference: Bool = true,
+        startEmpty: Bool = false
     ) {
         self.persistence = persistence
         self.importer = ImageImporter(sourcesDirectory: persistence.sourcesDirectory)
         self.clipboard = ClipboardManager(temporaryDirectory: persistence.temporaryDirectory)
-        var restoredState = persistence.load() ?? CompositionState()
+        var restoredState = startEmpty
+            ? persistence.startFreshPreservingPreferences()
+            : persistence.load() ?? CompositionState()
         let migrated = restoredState.migrateIfNeeded()
         self.state = restoredState
         self.monitorObservation = monitor.objectWillChange.sink {

@@ -55,29 +55,18 @@ final class CompositionWindowController: ObservableObject {
     ) {
         self.request = request
         self.workspace = workspace
-        let storedIDs = UserDefaults.standard
-            .stringArray(
-                forKey: Self.tabsDefaultsKey(for: request.compositionID)
-            )?
-            .compactMap(UUID.init(uuidString:))
-        let compositionIDs: [UUID]
-        if let storedIDs, !storedIDs.isEmpty {
-            compositionIDs = storedIDs
-        } else {
-            compositionIDs = [request.compositionID]
-        }
-        let restoredTabs = compositionIDs.map(workspace.makeTab)
-        self.tabs = restoredTabs
-        let storedActiveID = UserDefaults.standard
-            .string(
-                forKey: Self.activeTabDefaultsKey(
-                    for: request.compositionID
-                )
-            )
-            .flatMap(UUID.init(uuidString:))
-        self.activeTabID = restoredTabs.contains(where: {
-            $0.id == storedActiveID
-        }) ? storedActiveID! : restoredTabs[0].id
+        UserDefaults.standard.removeObject(
+            forKey: Self.tabsDefaultsKey(for: request.compositionID)
+        )
+        UserDefaults.standard.removeObject(
+            forKey: Self.activeTabDefaultsKey(for: request.compositionID)
+        )
+        let initialTab = workspace.makeTab(
+            compositionID: request.compositionID,
+            startEmpty: true
+        )
+        self.tabs = [initialTab]
+        self.activeTabID = initialTab.id
     }
 
     var activeTab: CompositionTab {
@@ -212,18 +201,28 @@ final class CompositionWorkspace: ObservableObject {
         }
     }
 
-    func makeStore(compositionID: UUID) -> ProjectStore {
+    func makeStore(
+        compositionID: UUID,
+        startEmpty: Bool = false
+    ) -> ProjectStore {
         ProjectStore(
             persistence: .live(compositionID: compositionID),
-            restoreMonitorPreference: false
+            restoreMonitorPreference: false,
+            startEmpty: startEmpty
         )
     }
 
-    func makeTab(compositionID: UUID) -> CompositionTab {
+    func makeTab(
+        compositionID: UUID,
+        startEmpty: Bool = false
+    ) -> CompositionTab {
         let tab = CompositionTab(
             id: compositionID,
             title: "Montagem \(nextSequence)",
-            store: makeStore(compositionID: compositionID)
+            store: makeStore(
+                compositionID: compositionID,
+                startEmpty: startEmpty
+            )
         )
         nextSequence += 1
         return tab

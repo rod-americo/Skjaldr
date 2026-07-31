@@ -143,7 +143,8 @@ aplicativo a outras pessoas.
 
 ## Uso rápido
 
-1. Abra o Skjaldr; use `⌘T` ou `⌘N` para outra composição em aba.
+1. Abra o Skjaldr; cada execução começa com uma composição vazia. Use `⌘T`
+   ou `⌘N` para outra composição em aba.
 2. Pressione `⌘V`, arraste imagens para a janela ou use **Adicionar**.
 3. Escolha Automático, Grade ou Comparação.
 4. Reordene pelas miniaturas, se necessário.
@@ -233,6 +234,10 @@ ficam em:
 ```text
 ~/Library/Application Support/Skjaldr/
 ```
+
+Ao encerrar e abrir novamente o Skjaldr, as composições anteriores e suas
+fontes locais são removidas. Preferências visuais, como largura, margens e
+espaçamento, são preservadas.
 
 A saída é recodificada e não herda EXIF, GPS, nomes, caminhos, comentários ou miniaturas das fontes. Logs da aplicação não registram nomes de arquivos nem conteúdo visual.
 

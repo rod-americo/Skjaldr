@@ -33,6 +33,33 @@ struct SessionPersistence {
         return try? JSONDecoder.project.decode(CompositionState.self, from: data)
     }
 
+    func startFreshPreservingPreferences() -> CompositionState {
+        var previous = load()
+        _ = previous?.migrateIfNeeded()
+
+        var fresh = CompositionState()
+        if let previous {
+            fresh.layoutMode = previous.layoutMode
+            fresh.outputProfile = previous.outputProfile
+            fresh.automaticCropMode = previous.automaticCropMode
+        }
+
+        removeIfPresent(stateURL)
+        removeIfPresent(sourcesDirectory)
+        removeIfPresent(temporaryDirectory)
+        try? save(fresh)
+        return fresh
+    }
+
+    static func removeSecondaryCompositions() {
+        let directory = live().rootDirectory
+            .appendingPathComponent("Composicoes", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: directory.path) else {
+            return
+        }
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     func save(_ state: CompositionState) throws {
         try FileManager.default.createDirectory(
             at: rootDirectory,
@@ -54,6 +81,11 @@ struct SessionPersistence {
         if FileManager.default.fileExists(atPath: rootDirectory.path) {
             try FileManager.default.removeItem(at: rootDirectory)
         }
+    }
+
+    private func removeIfPresent(_ url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try? FileManager.default.removeItem(at: url)
     }
 }
 

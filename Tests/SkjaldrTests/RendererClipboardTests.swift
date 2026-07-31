@@ -93,6 +93,57 @@ struct RendererClipboardTests {
     }
 
     @MainActor
+    @Test("Nova execução limpa o trabalho e preserva preferências")
+    func freshLaunchClearsWorkAndPreservesPreferences() throws {
+        try withTemporaryDirectory { directory in
+            let persistence = SessionPersistence(
+                rootDirectory: directory.appendingPathComponent("sessao")
+            )
+            try FileManager.default.createDirectory(
+                at: persistence.sourcesDirectory,
+                withIntermediateDirectories: true
+            )
+            let sourceURL = try makeImage(
+                in: persistence.sourcesDirectory,
+                name: "trabalho-anterior",
+                width: 640,
+                height: 480,
+                color: .black
+            )
+            var previous = CompositionState(
+                items: [
+                    CompositionItem(
+                        sourceURL: sourceURL,
+                        originalWidth: 640,
+                        originalHeight: 480
+                    )
+                ],
+                layoutMode: .comparison,
+                automaticCropMode: .uniformBorders
+            )
+            previous.outputProfile.preferredWidth = 1200
+            previous.outputProfile.outerMargin = 18
+            try persistence.save(previous)
+
+            let store = ProjectStore(
+                persistence: persistence,
+                restoreMonitorPreference: false,
+                startEmpty: true
+            )
+
+            #expect(store.state.items.isEmpty)
+            #expect(store.state.rowGroups.isEmpty)
+            #expect(store.state.rowBreaks.isEmpty)
+            #expect(store.state.layoutMode == .comparison)
+            #expect(store.state.automaticCropMode == .uniformBorders)
+            #expect(store.state.outputProfile.preferredWidth == 1200)
+            #expect(store.state.outputProfile.outerMargin == 18)
+            #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
+            #expect(persistence.load()?.items.isEmpty == true)
+        }
+    }
+
+    @MainActor
     @Test("Editor de legenda usa comandos textuais e inspeção ortográfica")
     func captionEditorUsesTextCommandsAndSpellChecking() {
         let textView = NSTextView()
