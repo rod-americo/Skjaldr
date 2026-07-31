@@ -211,7 +211,8 @@ Atalhos principais:
 | `⌘N` | nova composição em aba |
 | `⌘T` | nova aba de composição na janela única |
 | `⌘F13` | mostrar o Skjaldr e abrir uma composição em aba |
-| `⌘W` | fechar a aba atual; na última, ocultar o Skjaldr |
+| `⌘W` | fechar a aba atual; na última, abrir outra aba vazia |
+| `⌘H` | ocultar o Skjaldr |
 | `⌘V` | adicionar imagem do clipboard; em uma legenda, colar texto |
 | `⌘C` | copiar a composição final; em uma legenda, copiar texto |
 | `⌘X` / `⌘A` | recortar / selecionar tudo em uma legenda |
@@ -226,9 +227,9 @@ Atalhos principais:
 | `⌘F14` | iniciar seleção / cancelar seleção / parar gravação |
 | `⌃⌥F14` | cancelar gravação sem salvar nem enviar |
 
-O botão de fechar de uma aba sempre fecha aquela composição. Se for a última,
+O botão de fechar e `⌘W` sempre fecham a composição atual. Se for a última aba,
 o Skjaldr cria imediatamente uma nova aba vazia e mantém a janela visível. Para
-ocultar o aplicativo com apenas uma aba aberta, use `⌘W` ou `⌘H`.
+ocultar o aplicativo, use `⌘H`.
 
 ## Privacidade
 

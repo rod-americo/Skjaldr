@@ -10,27 +10,12 @@ struct CompositionSceneRequest {
     )
 }
 
-enum CompositionTabCloseIntent {
-    case tabControl
-    case keyboard
-}
-
 enum CompositionTabCloseAction: Equatable {
     case closeTab
     case replaceWithBlankTab
-    case hideApplication
 
-    static func resolve(
-        tabCount: Int,
-        intent: CompositionTabCloseIntent
-    ) -> Self {
-        guard tabCount <= 1 else { return .closeTab }
-        switch intent {
-        case .tabControl:
-            return .replaceWithBlankTab
-        case .keyboard:
-            return .hideApplication
-        }
+    static func resolve(tabCount: Int) -> Self {
+        tabCount <= 1 ? .replaceWithBlankTab : .closeTab
     }
 }
 
@@ -114,14 +99,9 @@ final class CompositionWindowController: ObservableObject {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else {
             return
         }
-        switch CompositionTabCloseAction.resolve(
-            tabCount: tabs.count,
-            intent: .tabControl
-        ) {
+        switch CompositionTabCloseAction.resolve(tabCount: tabs.count) {
         case .replaceWithBlankTab:
             replaceLastTab()
-            return
-        case .hideApplication:
             return
         case .closeTab:
             break
@@ -138,17 +118,7 @@ final class CompositionWindowController: ObservableObject {
     }
 
     func closeActiveTab() {
-        switch CompositionTabCloseAction.resolve(
-            tabCount: tabs.count,
-            intent: .keyboard
-        ) {
-        case .hideApplication:
-            workspace.hideWindow(for: self)
-        case .closeTab:
-            close(activeTabID)
-        case .replaceWithBlankTab:
-            break
-        }
+        close(activeTabID)
     }
 
     private func replaceLastTab() {
@@ -320,26 +290,6 @@ final class CompositionWorkspace: ObservableObject {
 
     func addTabToActiveWindow() {
         activeController?.addTab()
-    }
-
-    func hideWindow(for controller: CompositionWindowController) {
-        guard let record = records.values.first(where: {
-            $0.controller === controller
-        }), let window = record.window
-        else {
-            return
-        }
-        for tab in controller.tabs {
-            tab.store.monitor.stop()
-        }
-        window.orderOut(nil)
-        if activeController === controller {
-            activeController = nil
-            activeStore = nil
-        }
-        DispatchQueue.main.async {
-            NSApp.hide(nil)
-        }
     }
 
     func activate(controller: CompositionWindowController) {

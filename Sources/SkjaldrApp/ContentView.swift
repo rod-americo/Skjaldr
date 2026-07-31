@@ -489,6 +489,10 @@ struct ContentView: View {
                             shortcut: "⌘T / ⌘W",
                             description: "abrir / fechar aba"
                         )
+                        ShortcutHelpRow(
+                            shortcut: "⌘H",
+                            description: "ocultar o Skjaldr"
+                        )
                     }
                     .frame(maxWidth: 430, alignment: .leading)
                     .padding(13)

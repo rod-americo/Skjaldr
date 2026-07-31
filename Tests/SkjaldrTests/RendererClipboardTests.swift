@@ -343,31 +343,14 @@ struct RendererClipboardTests {
         )
     }
 
-    @Test("Última aba só oculta pelo atalho de teclado")
-    func lastTabCloseBehaviorDependsOnIntent() {
+    @Test("Última aba é sempre substituída por uma aba vazia")
+    func lastTabIsAlwaysReplaced() {
         #expect(
-            CompositionTabCloseAction.resolve(
-                tabCount: 1,
-                intent: .tabControl
-            ) == .replaceWithBlankTab
+            CompositionTabCloseAction.resolve(tabCount: 1)
+                == .replaceWithBlankTab
         )
         #expect(
-            CompositionTabCloseAction.resolve(
-                tabCount: 1,
-                intent: .keyboard
-            ) == .hideApplication
-        )
-        #expect(
-            CompositionTabCloseAction.resolve(
-                tabCount: 2,
-                intent: .tabControl
-            ) == .closeTab
-        )
-        #expect(
-            CompositionTabCloseAction.resolve(
-                tabCount: 2,
-                intent: .keyboard
-            ) == .closeTab
+            CompositionTabCloseAction.resolve(tabCount: 2) == .closeTab
         )
     }
 
