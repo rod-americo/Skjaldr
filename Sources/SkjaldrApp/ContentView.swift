@@ -131,13 +131,6 @@ struct ContentView: View {
                 in: NSApp.keyWindow
             )
         }
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: NSControl.textDidEndEditingNotification
-            )
-        ) { notification in
-            TextEditingSupport.finishEditing(from: notification)
-        }
         .onDisappear {
             stopDeleteKeyMonitoring()
         }
@@ -554,7 +547,10 @@ struct ContentView: View {
                     "Layout",
                     selection: Binding(
                         get: { store.state.layoutMode },
-                        set: store.setLayout
+                        set: {
+                            TextEditingSupport.endEditing()
+                            store.setLayout($0)
+                        }
                     )
                 ) {
                     ForEach(LayoutMode.allCases) { mode in
@@ -567,6 +563,7 @@ struct ContentView: View {
                     selection: Binding(
                         get: { store.state.outputProfile.name },
                         set: { name in
+                            TextEditingSupport.endEditing()
                             let profile: OutputProfile = switch name {
                             case OutputProfile.highResolution.name: .highResolution
                             case OutputProfile.compact.name: .compact
@@ -585,7 +582,10 @@ struct ContentView: View {
                     "Largura: \(store.state.outputProfile.preferredWidth) px",
                     value: Binding(
                         get: { store.state.outputProfile.preferredWidth },
-                        set: store.setOutputWidth
+                        set: {
+                            TextEditingSupport.endEditing()
+                            store.setOutputWidth($0)
+                        }
                     ),
                     in: 320...store.state.outputProfile.maximumWidth,
                     step: 50
@@ -595,7 +595,10 @@ struct ContentView: View {
                     "Margem: \(store.state.outputProfile.outerMargin) px",
                     value: Binding(
                         get: { store.state.outputProfile.outerMargin },
-                        set: { store.setSpacing(margin: $0) }
+                        set: {
+                            TextEditingSupport.endEditing()
+                            store.setSpacing(margin: $0)
+                        }
                     ),
                     in: 0...200
                 )
@@ -603,7 +606,10 @@ struct ContentView: View {
                     "Espaçamento: \(store.state.outputProfile.horizontalSpacing) px",
                     value: Binding(
                         get: { store.state.outputProfile.horizontalSpacing },
-                        set: { store.setSpacing(horizontal: $0, vertical: $0) }
+                        set: {
+                            TextEditingSupport.endEditing()
+                            store.setSpacing(horizontal: $0, vertical: $0)
+                        }
                     ),
                     in: 0...100
                 )
@@ -614,7 +620,10 @@ struct ContentView: View {
                     "Monitorar pasta",
                     isOn: Binding(
                         get: { store.monitor.isRunning },
-                        set: { _ in store.toggleMonitoring() }
+                        set: { _ in
+                            TextEditingSupport.endEditing()
+                            store.toggleMonitoring()
+                        }
                     )
                 )
                 if let directory = store.monitor.directory {
@@ -628,7 +637,10 @@ struct ContentView: View {
                     "Recorte ao importar",
                     selection: Binding(
                         get: { store.state.automaticCropMode },
-                        set: store.setAutomaticCropMode
+                        set: {
+                            TextEditingSupport.endEditing()
+                            store.setAutomaticCropMode($0)
+                        }
                     )
                 ) {
                     ForEach(AutomaticCropMode.allCases) { mode in
@@ -643,14 +655,20 @@ struct ContentView: View {
                         "Imagem principal",
                         isOn: Binding(
                             get: { item.isPrimary },
-                            set: { store.updateSelected(primary: $0) }
+                            set: {
+                                TextEditingSupport.endEditing()
+                                store.updateSelected(primary: $0)
+                            }
                         )
                     )
                     Toggle(
                         "Iniciar nova linha",
                         isOn: Binding(
                             get: { store.state.rowBreaks.contains(item.id) },
-                            set: store.setSelectedRowBreak
+                            set: {
+                                TextEditingSupport.endEditing()
+                                store.setSelectedRowBreak($0)
+                            }
                         )
                     )
                     .disabled(item.order == 0 || store.selectedGroup != nil)
@@ -730,7 +748,10 @@ struct ContentView: View {
                 "Layout",
                 selection: Binding(
                     get: { store.state.layoutMode },
-                    set: store.setLayout
+                    set: {
+                        TextEditingSupport.endEditing()
+                        store.setLayout($0)
+                    }
                 )
             ) {
                 ForEach(LayoutMode.allCases) { mode in
@@ -909,10 +930,18 @@ private struct CropControls: View {
                     set: { value in
                         guard var crop = store.selectedItem?.crop else { return }
                         crop[keyPath: keyPath] = value
-                        store.updateSelected(crop: crop)
+                        store.previewSelectedCrop(crop)
                     }
                 ),
-                in: 0...0.35
+                in: 0...0.35,
+                onEditingChanged: { isEditing in
+                    if isEditing {
+                        TextEditingSupport.endEditing()
+                        store.beginSelectedCropEditing()
+                    } else {
+                        store.endSelectedCropEditing()
+                    }
+                }
             )
         }
     }

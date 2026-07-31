@@ -43,8 +43,6 @@ enum TextEditingShortcut {
 
 @MainActor
 enum TextEditingSupport {
-    private static weak var activeEditor: NSTextView?
-
     static func isEditingText(_ responder: NSResponder?) -> Bool {
         textEditor(for: responder) != nil
     }
@@ -62,7 +60,7 @@ enum TextEditingSupport {
         _ action: TextEditingAction,
         responder: NSResponder?
     ) -> Bool {
-        guard let textView = textEditor(for: responder) ?? activeEditor,
+        guard let textView = textEditor(for: responder),
               textView.window === NSApp.keyWindow
         else {
             return false
@@ -89,25 +87,19 @@ enum TextEditingSupport {
 
         guard let textView, textView.window === window else { return }
         enableSystemSpelling(on: textView)
-        activeEditor = textView
-    }
-
-    static func finishEditing(from notification: Notification) {
-        let textView: NSTextView?
-        if let editor = notification.object as? NSTextView {
-            textView = editor
-        } else if let textField = notification.object as? NSTextField {
-            textView = textField.currentEditor() as? NSTextView
-        } else {
-            textView = nil
-        }
-        if textView == nil || textView === activeEditor {
-            activeEditor = nil
-        }
     }
 
     static func enableSystemSpelling(on textView: NSTextView) {
         textView.isContinuousSpellCheckingEnabled = true
+    }
+
+    static func endEditing() {
+        endEditing(in: NSApp.keyWindow)
+    }
+
+    static func endEditing(in window: NSWindow?) {
+        guard let window, isEditingText(window.firstResponder) else { return }
+        window.makeFirstResponder(nil)
     }
 
     private static func textEditor(

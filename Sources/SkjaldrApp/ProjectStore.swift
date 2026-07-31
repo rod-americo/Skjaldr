@@ -26,6 +26,9 @@ final class ProjectStore: ObservableObject {
     private var monitorObservation: AnyCancellable?
     private var suspendedMonitoringDirectory: URL?
     private var isSuspendedForRecording = false
+    private var cropEditingOriginalState: CompositionState?
+    private var cachedRenderedState: CompositionState?
+    private var cachedRenderedComposition: RenderedComposition?
 
     init(
         persistence: SessionPersistence = .live(),
@@ -147,7 +150,7 @@ final class ProjectStore: ObservableObject {
 
     func copyComposition() {
         do {
-            let result = try renderer.render(state: state)
+            let result = try renderCurrentComposition()
             try clipboard.copy(result)
             showToast("Imagem copiada")
         } catch {
@@ -199,7 +202,7 @@ final class ProjectStore: ObservableObject {
 
     func dragProvider() -> NSItemProvider {
         do {
-            let result = try renderer.render(state: state)
+            let result = try renderCurrentComposition()
             return try CompositionDragProvider()
                 .prepare(
                     pngData: result.pngData,
@@ -211,6 +214,40 @@ final class ProjectStore: ObservableObject {
             provider.suggestedName = "composicao-indisponivel.png"
             return provider
         }
+    }
+
+    func beginSelectedCropEditing() {
+        guard cropEditingOriginalState == nil, selectedItemID != nil else {
+            return
+        }
+        cropEditingOriginalState = state
+    }
+
+    func previewSelectedCrop(_ crop: NormalizedCrop) {
+        guard crop.isValid,
+              let id = selectedItemID,
+              let index = state.items.firstIndex(where: { $0.id == id })
+        else {
+            return
+        }
+        if cropEditingOriginalState == nil {
+            cropEditingOriginalState = state
+        }
+        guard state.items[index].crop != crop else { return }
+        var next = state
+        next.items[index].crop = crop
+        state = next
+        invalidateRenderedCache()
+        refreshPreview(debounce: .milliseconds(70))
+    }
+
+    func endSelectedCropEditing() {
+        guard let original = cropEditingOriginalState else { return }
+        cropEditingOriginalState = nil
+        guard original != state else { return }
+        registerUndo(original)
+        redoStates.removeAll()
+        persistAndRefresh()
     }
 
     func removeSelected() {
@@ -486,13 +523,18 @@ final class ProjectStore: ObservableObject {
 
     private func commit(_ next: CompositionState) {
         guard next != state else { return }
-        undoStates.append(state)
+        registerUndo(state)
+        redoStates.removeAll()
+        state = next
+        invalidateRenderedCache()
+        persistAndRefresh()
+    }
+
+    private func registerUndo(_ previous: CompositionState) {
+        undoStates.append(previous)
         if undoStates.count > 100 {
             undoStates.removeFirst(undoStates.count - 100)
         }
-        redoStates.removeAll()
-        state = next
-        persistAndRefresh()
     }
 
     private func importImage(_ image: NSImage) throws {
@@ -526,11 +568,15 @@ final class ProjectStore: ObservableObject {
         refreshPreview()
     }
 
-    private func refreshPreview() {
+    private func refreshPreview(debounce: Duration? = nil) {
         previewTask?.cancel()
         let snapshot = state
         previewTask = Task { @MainActor [weak self] in
-            await Task.yield()
+            if let debounce {
+                try? await Task.sleep(for: debounce)
+            } else {
+                await Task.yield()
+            }
             guard !Task.isCancelled else { return }
             if snapshot.items.isEmpty {
                 self?.previewImage = nil
@@ -539,10 +585,23 @@ final class ProjectStore: ObservableObject {
                 return
             }
             do {
-                let result = try self?.renderer.render(state: snapshot, width: min(1100, snapshot.outputProfile.preferredWidth))
+                let previewWidth = min(
+                    1100,
+                    snapshot.outputProfile.preferredWidth
+                )
+                let result = try self?.renderer.render(
+                    state: snapshot,
+                    width: previewWidth
+                )
                 guard !Task.isCancelled else { return }
                 self?.previewImage = result?.image
                 if let result {
+                    if previewWidth == snapshot.outputProfile.preferredWidth,
+                       snapshot == self?.state
+                    {
+                        self?.cachedRenderedState = snapshot
+                        self?.cachedRenderedComposition = result
+                    }
                     let ratio = CGFloat(snapshot.outputProfile.preferredWidth) / result.size.width
                     self?.previewDimensions = CGSize(
                         width: CGFloat(snapshot.outputProfile.preferredWidth),
@@ -558,6 +617,23 @@ final class ProjectStore: ObservableObject {
                 self?.approximateFileSize = 0
             }
         }
+    }
+
+    private func renderCurrentComposition() throws -> RenderedComposition {
+        if cachedRenderedState == state,
+           let cachedRenderedComposition
+        {
+            return cachedRenderedComposition
+        }
+        let result = try renderer.render(state: state)
+        cachedRenderedState = state
+        cachedRenderedComposition = result
+        return result
+    }
+
+    private func invalidateRenderedCache() {
+        cachedRenderedState = nil
+        cachedRenderedComposition = nil
     }
 
     private func showToast(_ message: String) {

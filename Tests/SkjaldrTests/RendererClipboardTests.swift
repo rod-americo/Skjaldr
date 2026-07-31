@@ -148,9 +148,21 @@ struct RendererClipboardTests {
     func captionEditorUsesTextCommandsAndSpellChecking() {
         let textView = NSTextView()
         let button = NSButton()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 200),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = textView
+        window.makeFirstResponder(textView)
 
         #expect(TextEditingSupport.isEditingText(textView))
         #expect(!TextEditingSupport.isEditingText(button))
+        #expect(!TextEditingSupport.performIfEditing(.copy, responder: button))
+        #expect(window.firstResponder === textView)
+        TextEditingSupport.endEditing(in: window)
+        #expect(window.firstResponder !== textView)
         #expect(!textView.isContinuousSpellCheckingEnabled)
 
         TextEditingSupport.enableSystemSpelling(on: textView)
@@ -170,6 +182,49 @@ struct RendererClipboardTests {
                 modifiers: [.command, .shift]
             ) == nil
         )
+    }
+
+    @MainActor
+    @Test("Recorte contínuo gera uma única alteração persistida")
+    func cropEditingIsCommittedOnce() throws {
+        try withTemporaryDirectory { directory in
+            let sourceURL = try makeImage(
+                in: directory,
+                name: "recorte-transitorio",
+                width: 640,
+                height: 480,
+                color: .black
+            )
+            let item = CompositionItem(
+                sourceURL: sourceURL,
+                originalWidth: 640,
+                originalHeight: 480
+            )
+            let persistence = SessionPersistence(
+                rootDirectory: directory.appendingPathComponent("sessao")
+            )
+            try persistence.save(CompositionState(items: [item]))
+            let store = ProjectStore(
+                persistence: persistence,
+                restoreMonitorPreference: false
+            )
+            store.selectItem(item.id, extending: false)
+
+            store.beginSelectedCropEditing()
+            store.previewSelectedCrop(NormalizedCrop(top: 0.05))
+            store.previewSelectedCrop(NormalizedCrop(top: 0.12))
+
+            #expect(store.state.items[0].crop.top == 0.12)
+            #expect(persistence.load()?.items[0].crop.top == 0)
+
+            store.endSelectedCropEditing()
+
+            #expect(persistence.load()?.items[0].crop.top == 0.12)
+            #expect(store.canUndo)
+            store.undo()
+            #expect(store.state.items[0].crop == .zero)
+            #expect(!store.canUndo)
+        }
     }
 
     @Test("Recorte conservador detecta borda uniforme")
